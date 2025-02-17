@@ -4,6 +4,7 @@ name: Pre-commit check
 on:
   pull_request:
     branches: [main]
+    types: [labeled, opened, reopened, synchronize]
   workflow_dispatch:
 
 env:
@@ -15,11 +16,16 @@ permissions:
   contents: read
 jobs:
   pre-commit:
+    if: github.event.action != 'labeled' || github.event.label.name == 'pre-commit ci run'
     name: Pre-commit check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout git repository
         uses: actions/checkout@v4
+      - run: gh pr edit ${{ github.event.number }} --remove-label 'pre-commit ci run'
+        if: github.event.action == 'labeled' && github.event.label.name == 'pre-commit ci run'
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Setup python
         uses: actions/setup-python@v5
         with:
