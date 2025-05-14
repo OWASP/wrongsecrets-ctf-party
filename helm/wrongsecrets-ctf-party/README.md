@@ -41,7 +41,7 @@ To uninstall the chart:
     helm delete my-wrongsecrets-ctf-party
 # wrongsecrets-ctf-party
 
-![Version: 1.8.5](https://img.shields.io/badge/Version-1.8.5-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.8.5](https://img.shields.io/badge/AppVersion-1.8.5-informational?style=flat-square)
+![Version: 1.11.2A1](https://img.shields.io/badge/Version-1.11.2A1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.11.2A1](https://img.shields.io/badge/AppVersion-1.11.2A1-informational?style=flat-square)
 
 Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 
@@ -55,6 +55,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 
 | Repository | Name | Version |
 |------------|------|---------|
+| https://bitnami-labs.github.io/sealed-secrets | sealed-secrets | 0.28.0 |
 | https://grafana.github.io/helm-charts | loki | 2.16.0 |
 | https://grafana.github.io/helm-charts | promtail | 3.11.0 |
 | https://prometheus-community.github.io/helm-charts | kube-prometheus-stack | 43.3.1 |
