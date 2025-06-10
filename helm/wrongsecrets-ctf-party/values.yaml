@@ -303,6 +303,85 @@ wrongsecretsCleanup:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+sealed-secrets:
+  # Install the controller
+  enabled: true
+
+  # Install the CRDs
+  createSealedSecretCRDs: true
+
+  # Make the controller cluster-wide so it can manage keys in all namespaces
+  clusterWide: true
+
+  # Optionally, set this to true to automatically create a key in every namespace
+  keyrenewperiod: "0" # disables automatic key rotation
+  keySize: 4096
+  # -- If true, creates a ServiceAccount for the Sealed Secrets controller
+  createServiceAccount: true
+  # -- If true, creates a Role for the Sealed Secrets controller
+  createRole: true
+  # -- If true, creates a RoleBinding for the Sealed Secrets controller
+  createRoleBinding: true
+  # -- If true, creates a ClusterRole for the Sealed Secrets controller
+  createClusterRole: true
+  # -- If true, creates a ClusterRoleBinding for the Sealed Secrets controller
+  createClusterRoleBinding: true
+  # -- If true, creates a Service for the Sealed Secrets controller
+  createService: true
+  # -- If true, creates a Deployment for the Sealed Secrets controller
+  createDeployment: true
+  # -- If true, creates a PodDisruptionBudget for the Sealed Secrets controller
+  createPodDisruptionBudget: true
+  # -- If true, creates a ConfigMap for the Sealed Secrets controller
+  createConfigMap: true
+  # -- If true, creates a Secret for the Sealed Secrets controller
+  createSecret: true
+  # -- If true, creates a ServiceAccount for the Sealed Secrets controller
+  createControllerServiceAccount: true
+  # -- If true, creates a Role for the Sealed Secrets controller
+  createControllerRole: true
+  # -- If true, creates a RoleBinding for the Sealed Secrets controller
+  createControllerRoleBinding: true
+  # -- If true, creates a ClusterRole for the Sealed Secrets controller
+  createControllerClusterRole: true
+  # -- If true, creates a ClusterRoleBinding for the Sealed Secrets controller
+  createControllerClusterRoleBinding: true
+  # -- If true, creates a Service for the Sealed Secrets controller
+  createControllerService: true
+  # -- If true, creates a Deployment for the Sealed Secrets controller
+  createControllerDeployment: true
+  # -- If true, creates a PodDisruptionBudget for the Sealed Secrets controller
+  createControllerPodDisruptionBudget: true
+  # -- If true, creates a ConfigMap for the Sealed Secrets controller
+  createControllerConfigMap: true
+  # -- If true, creates a Secret for the Sealed Secrets controller
+  createControllerSecret: true
+  # -- If true, creates a ServiceAccount for the Sealed Secrets controller
+  controllerServiceAccountName: "sealed-secrets-controller"
+  # -- If true, creates a Role for the Sealed Secrets controller
+  controllerRoleName: "sealed-secrets-controller"
+  # -- If true, creates a RoleBinding for the Sealed Secrets controller
+  controllerRoleBindingName: "sealed-secrets-controller"
+  # -- If true, creates a ClusterRole for the Sealed Secrets controller
+  controllerClusterRoleName: "sealed-secrets-controller"
+  # -- If true, creates a ClusterRoleBinding for the Sealed Secrets controller
+  controllerClusterRoleBindingName: "sealed-secrets-controller"
+  # -- If true, creates a Service for the Sealed Secrets controller
+  controllerServiceName: "sealed-secrets-controller"
+  # -- If true, creates a Deployment for the Sealed Secrets controller
+  controllerDeploymentName: "sealed-secrets-controller"
+  # -- If true, creates a PodDisruptionBudget for the Sealed Secrets controller
+  controllerPodDisruptionBudgetName: "sealed-secrets-controller"
+  # -- If true, creates a ConfigMap for the Sealed Secrets controller
+  controllerConfigMapName: "sealed-secrets-controller"
+  # -- If true, creates a Secret for the Sealed Secrets controller
+  controllerSecretName: "sealed-secrets-controller"
+  # -- If true, creates a ServiceAccount for the Sealed Secrets controller
+  controllerServiceAccount:
+    name: "sealed-secrets-controller"
+    annotations: {} # -- Annotations to be added to the ServiceAccount
+    automountServiceAccountToken: true # -- If true, the ServiceAccount will automatically mount the service account token
+
 kube-prometheus-stack:
   # -- If true, installs the kube-prometheus-stack chart which includes Prometheus, Alertmanager, Grafana, and other monitoring components
   enabled: true
