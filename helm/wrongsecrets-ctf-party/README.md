@@ -55,7 +55,6 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://bitnami-labs.github.io/sealed-secrets | sealed-secrets | 0.28.0 |
 | https://grafana.github.io/helm-charts | loki | 2.16.0 |
 | https://grafana.github.io/helm-charts | promtail | 3.11.0 |
 | https://prometheus-community.github.io/helm-charts | kube-prometheus-stack | 43.3.1 |
@@ -143,38 +142,10 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | kube-prometheus-stack.grafana.rbac.pspEnabled | bool | `false` | If true, Grafana PSPs will be created |
 | nodeSelector | object | `{}` |  |
 | sealed-secrets.clusterWide | bool | `true` |  |
-| sealed-secrets.controllerClusterRoleBindingName | string | `"sealed-secrets-controller"` | If true, creates a ClusterRoleBinding for the Sealed Secrets controller |
-| sealed-secrets.controllerClusterRoleName | string | `"sealed-secrets-controller"` | If true, creates a ClusterRole for the Sealed Secrets controller |
-| sealed-secrets.controllerConfigMapName | string | `"sealed-secrets-controller"` | If true, creates a ConfigMap for the Sealed Secrets controller |
-| sealed-secrets.controllerDeploymentName | string | `"sealed-secrets-controller"` | If true, creates a Deployment for the Sealed Secrets controller |
-| sealed-secrets.controllerPodDisruptionBudgetName | string | `"sealed-secrets-controller"` | If true, creates a PodDisruptionBudget for the Sealed Secrets controller |
-| sealed-secrets.controllerRoleBindingName | string | `"sealed-secrets-controller"` | If true, creates a RoleBinding for the Sealed Secrets controller |
-| sealed-secrets.controllerRoleName | string | `"sealed-secrets-controller"` | If true, creates a Role for the Sealed Secrets controller |
-| sealed-secrets.controllerSecretName | string | `"sealed-secrets-controller"` | If true, creates a Secret for the Sealed Secrets controller |
-| sealed-secrets.controllerServiceAccount | object | `{"annotations":{},"automountServiceAccountToken":true,"name":"sealed-secrets-controller"}` | If true, creates a ServiceAccount for the Sealed Secrets controller |
-| sealed-secrets.controllerServiceAccountName | string | `"sealed-secrets-controller"` | If true, creates a ServiceAccount for the Sealed Secrets controller |
-| sealed-secrets.controllerServiceName | string | `"sealed-secrets-controller"` | If true, creates a Service for the Sealed Secrets controller |
-| sealed-secrets.createClusterRole | bool | `true` | If true, creates a ClusterRole for the Sealed Secrets controller |
-| sealed-secrets.createClusterRoleBinding | bool | `true` | If true, creates a ClusterRoleBinding for the Sealed Secrets controller |
-| sealed-secrets.createConfigMap | bool | `true` | If true, creates a ConfigMap for the Sealed Secrets controller |
-| sealed-secrets.createControllerClusterRole | bool | `true` | If true, creates a ClusterRole for the Sealed Secrets controller |
-| sealed-secrets.createControllerClusterRoleBinding | bool | `true` | If true, creates a ClusterRoleBinding for the Sealed Secrets controller |
-| sealed-secrets.createControllerConfigMap | bool | `true` | If true, creates a ConfigMap for the Sealed Secrets controller |
-| sealed-secrets.createControllerDeployment | bool | `true` | If true, creates a Deployment for the Sealed Secrets controller |
-| sealed-secrets.createControllerPodDisruptionBudget | bool | `true` | If true, creates a PodDisruptionBudget for the Sealed Secrets controller |
-| sealed-secrets.createControllerRole | bool | `true` | If true, creates a Role for the Sealed Secrets controller |
-| sealed-secrets.createControllerRoleBinding | bool | `true` | If true, creates a RoleBinding for the Sealed Secrets controller |
-| sealed-secrets.createControllerSecret | bool | `true` | If true, creates a Secret for the Sealed Secrets controller |
-| sealed-secrets.createControllerService | bool | `true` | If true, creates a Service for the Sealed Secrets controller |
-| sealed-secrets.createControllerServiceAccount | bool | `true` | If true, creates a ServiceAccount for the Sealed Secrets controller |
-| sealed-secrets.createDeployment | bool | `true` | If true, creates a Deployment for the Sealed Secrets controller |
-| sealed-secrets.createPodDisruptionBudget | bool | `true` | If true, creates a PodDisruptionBudget for the Sealed Secrets controller |
-| sealed-secrets.createRole | bool | `true` | If true, creates a Role for the Sealed Secrets controller |
-| sealed-secrets.createRoleBinding | bool | `true` | If true, creates a RoleBinding for the Sealed Secrets controller |
+| sealed-secrets.controllerServiceAccount.annotations | object | `{}` |  |
+| sealed-secrets.controllerServiceAccount.automountServiceAccountToken | bool | `true` |  |
+| sealed-secrets.controllerServiceAccount.name | string | `"sealed-secrets-controller"` |  |
 | sealed-secrets.createSealedSecretCRDs | bool | `true` |  |
-| sealed-secrets.createSecret | bool | `true` | If true, creates a Secret for the Sealed Secrets controller |
-| sealed-secrets.createService | bool | `true` | If true, creates a Service for the Sealed Secrets controller |
-| sealed-secrets.createServiceAccount | bool | `true` | If true, creates a ServiceAccount for the Sealed Secrets controller |
 | sealed-secrets.enabled | bool | `true` |  |
 | sealed-secrets.keySize | int | `4096` |  |
 | sealed-secrets.keyrenewperiod | string | `"0"` |  |
