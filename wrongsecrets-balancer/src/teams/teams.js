@@ -73,7 +73,7 @@ const cookieSettings = {
  */
 async function interceptAdminLogin(req, res, next) {
   const { team } = req.params;
-  const { passcode } = req.body;
+  const passcode = req.body && req.body.passcode;
 
   if (team === get('admin.username') && passcode === get('admin.password')) {
     loginCounter.inc({ type: 'login', userType: 'admin' }, 1);
