@@ -77,11 +77,21 @@ const { get } = require('./config');
 const { logger } = require('./logger');
 
 // Add input validation helper function
+// Enhanced validateTeamName function with better error handling
 const validateTeamName = (team) => {
-  if (!team || typeof team !== 'string' || team.trim() === '') {
-    throw new Error('Invalid team name provided');
+  if (!team || typeof team !== 'string') {
+    logger.error(`Invalid team name provided: ${team} (type: ${typeof team})`);
+    throw new Error(`Invalid team name provided: ${team}`);
   }
-  return team.trim();
+
+  const trimmed = team.trim();
+  if (trimmed === '') {
+    logger.error(`Empty team name provided after trimming: "${team}"`);
+    throw new Error('Team name cannot be empty');
+  }
+
+  logger.info(`Validated team name: "${trimmed}"`);
+  return trimmed;
 };
 
 // Move safeApiCall to the top
