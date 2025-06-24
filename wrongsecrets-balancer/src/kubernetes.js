@@ -1095,7 +1095,7 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
 const getKubernetesEndpointToWhitelist = async () => {
   try {
     // FIX: Use correct parameter order and response structure
-    const response = await k8sCoreApi.readNamespacedEndpoints('kubernetes', 'default');
+    const response = await k8sCoreApi.readNamespacedEndpoints({name:'kubernetes', namespace:'default'});
 
     // FIX: Extract subsets from the correct response structure
     const subsets = response.body.subsets;
