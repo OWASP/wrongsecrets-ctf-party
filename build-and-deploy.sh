@@ -12,13 +12,13 @@ checkCommandsAvailable helm docker kubectl yq
 version="$(uuidgen)"
 eval $(minikube docker-env)
 docker login
-WRONGSECRETS_IMAGE=$(cat helm/wrongsecrets-ctf-party/values.yaml| yq '.wrongsecrets.image')
-WRONGSECRETS_TAG=$(cat helm/wrongsecrets-ctf-party/values.yaml| yq '.wrongsecrets.tag')
-WEBTOP_IMAGE=$(cat helm/wrongsecrets-ctf-party/values.yaml| yq '.virtualdesktop.image')
-WEBTOP_TAG=$(cat helm/wrongsecrets-ctf-party/values.yaml| yq '.virtualdesktop.tag')
+WRONGSECRETS_IMAGE=$(cat helm/wrongsecrets-ctf-party/values.yaml | yq '.wrongsecrets.image')
+WRONGSECRETS_TAG=$(cat helm/wrongsecrets-ctf-party/values.yaml | yq '.wrongsecrets.tag')
+WEBTOP_IMAGE=$(cat helm/wrongsecrets-ctf-party/values.yaml | yq '.virtualdesktop.image')
+WEBTOP_TAG=$(cat helm/wrongsecrets-ctf-party/values.yaml | yq '.virtualdesktop.tag')
 echo "doing workaround for selaed secrets"
 helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
-helm install my-release sealed-secrets/sealed-secrets
+helm install ws-sealedsecret sealed-secrets/sealed-secrets
 echo "Pulling in required images to actually run $WRONGSECRETS_IMAGE:$WRONGSECRETS_TAG & $WEBTOP_IMAGE:$WEBTOP_TAG."
 echo "If you see an authentication failure: pull them manually by the following 2 commands"
 echo "'docker pull $WRONGSECRETS_IMAGE:$WRONGSECRETS_TAG'"

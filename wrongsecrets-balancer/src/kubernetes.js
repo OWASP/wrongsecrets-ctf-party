@@ -1096,9 +1096,8 @@ const getKubernetesEndpointToWhitelist = async () => {
   try {
     // FIX: Use correct parameter order and response structure
     const response = await k8sCoreApi.readNamespacedEndpoints({name:'kubernetes', namespace:'default'});
-
     // FIX: Extract subsets from the correct response structure
-    const subsets = response.body.subsets;
+    const subsets = response.subsets;
 
     logger.info(`Kubernetes endpoints subsets: ${JSON.stringify(subsets)}`);
 
@@ -1857,7 +1856,7 @@ const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
     },
   };
 
-  return k8sAppsApi.patchNamespacedDeployment({ name: `t-${teamname}-wrongsecrets`, namespace: `t-${teamname}`, body: deploymentPatch })
+  return k8sAppsApi.patchNamespacedDeployment({ name: `t-${teamname}-wrongsecrets`, namespace: `t-${teamname}`, body: deploymentPatch, options: options })
 };
 
 const deleteNamespaceForTeam = async (team) => {
