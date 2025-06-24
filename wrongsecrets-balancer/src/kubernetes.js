@@ -157,12 +157,12 @@ const getJuiceShopInstanceForTeamname = async (teamname) => {
       () => k8sAppsApi.readNamespacedDeployment({name: deploymentName, namespace: namespace}),
       `Check deployment for team ${teamname}`
     );
-    if (!res || !res.body) {
+    if (!res) {
       logger.info(`No deployment found for team ${teamname}`);
       return undefined;
     }
 
-    const deployment = res.body;
+    const deployment = res;
 
     if (
       Object.prototype.hasOwnProperty.call(deployment, 'metadata') &&
@@ -199,7 +199,7 @@ const createConfigmapForTeam = async (team) => {
     },
   };
   return k8sCoreApi.createNamespacedConfigMap({namespace: 't-' + team, body: configmap}).catch((error) => {
-    throw new Error(error.response.body.message);
+    throw new Error(error.response.message);
   });
 };
 
@@ -217,7 +217,7 @@ const createSecretsfileForTeam = async (team) => {
     },
   };
   return k8sCoreApi.createNamespacedSecret({namespace: 't-' + team, body: secret}).catch((error) => {
-    throw new Error(error.response.body.message);
+    throw new Error(error.response.message);
   });
 };
 
@@ -239,7 +239,7 @@ const createChallenge33SecretForTeam = async (team) => {
     },
   };
   return k8sCoreApi.createNamespacedSecret({namespace: 't-' + team, body: secret}).catch((error) => {
-    throw new Error(error.response.body.message);
+    throw new Error(error.response.message);
   });
 };
 
@@ -314,7 +314,7 @@ const getSealedSecretsPublicKey = async () => {
       {name: 'sealed-secrets-key',
       namespace: 'kube-system'}
     );
-    return response.body.data['tls.crt'];
+    return response.data['tls.crt'];
   } catch (error) {
     logger.error('Failed to get Sealed Secrets public key:', error.body || error);
     throw new Error(`Failed to get public key: ${error.message}`);
@@ -1862,7 +1862,7 @@ const deleteNamespaceForTeam = async (team) => {
 const deletePodForTeam = async (team) => {
   const res = await k8sCoreApi.listNamespacedPod({namespace: `t-${team}`, pretty: true, allowWatchBookmarks: true, _continue: undefined, fieldSelector: undefined, labelSelector: `app=wrongsecrets,team=${team},deployment-context=${get('deploymentContext')}`});
 
-  const pods = res.body.items;
+  const pods = res.items;
 
   if (pods.length !== 1) {
     throw new Error(`Unexpected number of pods ${pods.length}`);
@@ -1876,7 +1876,7 @@ const deletePodForTeam = async (team) => {
 const deleteDesktopPodForTeam = async (team) => {
   const res = await k8sCoreApi.listNamespacedPod({namespace: `t-${team}`, pretty: true, allowWatchBookmarks: true, _continue: undefined, fieldSelector: undefined, labelSelector: `app=virtualdesktop,team=${team},deployment-context=${get('deploymentContext')}`});
 
-  const pods = res.body.items;
+  const pods = res.items;
 
   if (pods.length !== 1) {
     throw new Error(`Unexpected number of pods ${pods.length}`);

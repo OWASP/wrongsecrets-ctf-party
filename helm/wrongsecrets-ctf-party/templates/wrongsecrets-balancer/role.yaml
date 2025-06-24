@@ -44,3 +44,6 @@ rules:
   - apiGroups: ['']
     resources: ['endpoints']
     verbs: [ 'get', 'list']
+  - apiGroups: ['bitnami.com']
+    resources: ['sealedsecrets']
+    verbs: ['get', 'create', 'list', 'delete', 'patch', 'watch', 'update']
