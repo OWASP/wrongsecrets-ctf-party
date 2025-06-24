@@ -376,7 +376,11 @@ async function createTeam(req, res) {
       });
   } catch (error) {
     logger.error(`Error while creating deployment or service for team ${team}: ${error.message}`);
+    if (!res.headersSent) {
     res.status(500).send({ message: 'Failed to Create Instance' });
+    } else {
+      logger.error('Could not send error response because headers were already sent');
+    }
   }
 }
 

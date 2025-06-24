@@ -129,16 +129,10 @@ const checkSealedSecretsController = async () => {
   try {
     logger.info('Checking Sealed Secrets controller deployment status...');
     const response = await safeApiCall(
-      () => k8sAppsApi.readNamespacedDeployment({name: 'sealed-secrets-controller', namespace:'kube-system'}),
+      () => k8sAppsApi.readNamespacedDeployment({name: 'ws-sealedsecrets-sealed-secrets', namespace:'kube-system'}),
       'Check Sealed Secrets controller'
     );
-    // const response = await k8sAppsApi.readNamespacedDeployment('sealed-secrets-controller', 'kube-system');
-    if (!response || !response.body) {
-      logger.warn('Sealed Secrets controller deployment not found');
-      return false;
-    }
-
-    const deployment = response.body;
+    const deployment = response;
     const isReady = deployment.status && deployment.status.readyReplicas > 0;
 
     logger.info(`Sealed Secrets controller status: ${isReady ? 'Ready' : 'Not Ready'}`);
