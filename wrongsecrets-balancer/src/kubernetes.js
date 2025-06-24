@@ -97,7 +97,15 @@ const validateTeamName = (team) => {
 // Move safeApiCall to the top
 const safeApiCall = async (apiCall, operation) => {
   try {
+    logger.info(`Executing API call for operation: ${operation}`);
+    if (typeof apiCall !== 'function') {
+      logger.error(`Invalid API call function provided for operation: ${operation}`);
+      throw new Error(`Invalid API call function provided for operation: ${operation}`);
+    }
+    logger.info(`API call arguments: ${JSON.stringify(apiCall, null, 2)}`);
+
     const response = await apiCall();
+    logger.info(`API call ${operation} completed successfully`);
     return response;
   } catch (error) {
     logger.error(`${operation} failed:`, {
@@ -105,9 +113,10 @@ const safeApiCall = async (apiCall, operation) => {
       statusCode: error.statusCode,
       body: error.body,
     });
-
+    logger.error(`Error details for operation ${operation}: ${JSON.stringify(error, null, 2)}`);
     // Return null for 404 errors (resource not found)
     if (error.statusCode === 404) {
+      logger.warn(`${operation} returned 404: Resource not found`);
       return null;
     }
 
@@ -118,11 +127,12 @@ const safeApiCall = async (apiCall, operation) => {
 // Check if Sealed Secrets controller is installed and ready
 const checkSealedSecretsController = async () => {
   try {
+    logger.info('Checking Sealed Secrets controller deployment status...');
     const response = await safeApiCall(
-      () => k8sAppsApi.readNamespacedDeployment('sealed-secrets-controller', 'kube-system'),
+      () => k8sAppsApi.readNamespacedDeployment({name: 'sealed-secrets-controller', namespace:'kube-system'}),
       'Check Sealed Secrets controller'
     );
-
+    // const response = await k8sAppsApi.readNamespacedDeployment('sealed-secrets-controller', 'kube-system');
     if (!response || !response.body) {
       logger.warn('Sealed Secrets controller deployment not found');
       return false;
@@ -147,12 +157,12 @@ const getJuiceShopInstanceForTeamname = async (teamname) => {
     const deploymentName = `t-${validatedTeamName}-wrongsecrets`;
     const namespace = `t-${validatedTeamName}`;
 
+    logger.info(`Checking deployment for ${deploymentName} in namespace ${namespace}`);
     // FIX: Correct parameter order - name first, then namespace
     const res = await safeApiCall(
-      () => k8sAppsApi.readNamespacedDeployment(deploymentName, namespace),
+      () => k8sAppsApi.readNamespacedDeployment({name: deploymentName, namespace: namespace}),
       `Check deployment for team ${teamname}`
     );
-
     if (!res || !res.body) {
       logger.info(`No deployment found for team ${teamname}`);
       return undefined;
