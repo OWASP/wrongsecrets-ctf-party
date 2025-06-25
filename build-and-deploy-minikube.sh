@@ -8,7 +8,8 @@ minikube start  --cpus=8 --memory=12000MB --network-plugin=cni --cni=calico --dr
 eval $(minikube docker-env)
 ./build-and-deploy.sh
 
-sleep 15
+echo "Waiting for wrongsecrets-balancer pods to be ready..."
+kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=2s
 
 echo "let's go!"
 

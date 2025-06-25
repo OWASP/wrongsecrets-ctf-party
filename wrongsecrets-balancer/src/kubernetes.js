@@ -293,6 +293,7 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
 
 /**
  * Create a sealed secret for challenge 33 specific to the team
+ * TODO: REPLACE WITH CHALLENGE 53 FOR ACTUAL SEALED SECRET
  * @param {string} team - The team name
  */
 const createSealedChallenge33SecretForTeam = async (team) => {
@@ -471,8 +472,9 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                       key: 'answer',
                     },
                   },
-                }, // ADD THIS MISSING COMMA AND CLOSING BRACKET
-              ], // MAKE SURE THIS CLOSES THE env ARRAY PROPERLY
+               },
+                ...get('wrongsecrets.env', []),
+              ],
               envFrom: get('wrongsecrets.envFrom'),
               ports: [
                 {
@@ -535,6 +537,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
   return k8sAppsApi
     .createNamespacedDeployment({namespace:'t-' + team, body: deploymentWrongSecretsConfig})
     .catch((error) => {
+      logger.error(`Failed to create deployment for team ${team}:`, error.body || error.message || error);
       throw new Error(error.response.body.message);
     });
 };
