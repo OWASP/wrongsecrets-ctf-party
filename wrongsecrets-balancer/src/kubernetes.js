@@ -538,7 +538,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
     .createNamespacedDeployment({namespace:'t-' + team, body: deploymentWrongSecretsConfig})
     .catch((error) => {
       logger.error(`Failed to create deployment for team ${team}:`, error.body || error.message || error);
-      throw new Error(error.response.body.message);
+      throw new Error(error.message || error.body?.message || 'Failed to create deployment for body: ' + JSON.stringify(deploymentWrongSecretsConfig, null, 2));
     });
 };
 
