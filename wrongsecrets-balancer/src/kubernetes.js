@@ -516,14 +516,22 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                 {
                   mountPath: '/tmp',
                   name: 'ephemeral',
-                },
-                {
-                  name: 'secrets-store-inline',
-                  mountPath: '/mnt/secrets-store',
-                  readOnly: true,
-                },
+                }
               ],
             },
+          ],
+          volumes: [
+            // {
+            //   name: 'wrongsecrets-config',
+            //   configMap: {
+            //     name: 'wrongsecrets-config',
+            //   },
+            // },
+            {
+              name: 'ephemeral',
+              emptyDir: {},
+            },
+            // ...get('wrongsecrets.volumes', []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
@@ -787,6 +795,19 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
                 // ...get('wrongsecrets.volumeMounts', []),
               ],
             },
+          ],
+           volumes: [
+            // {
+            //   name: 'wrongsecrets-config',
+            //   configMap: {
+            //     name: 'wrongsecrets-config',
+            //   },
+            // },
+            {
+              name: 'ephemeral',
+              emptyDir: {},
+            },
+            // ...get('wrongsecrets.volumes', []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
@@ -1069,6 +1090,19 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
                 // ...get('wrongsecrets.volumeMounts', []),
               ],
             },
+          ],
+           volumes: [
+            // {
+            //   name: 'wrongsecrets-config',
+            //   configMap: {
+            //     name: 'wrongsecrets-config',
+            //   },
+            // },
+            {
+              name: 'ephemeral',
+              emptyDir: {},
+            },
+            // ...get('wrongsecrets.volumes', []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
@@ -2191,6 +2225,19 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
               ],
             },
+          ],
+           volumes: [
+            // {
+            //   name: 'wrongsecrets-config',
+            //   configMap: {
+            //     name: 'wrongsecrets-config',
+            //   },
+            // },
+            {
+              name: 'ephemeral',
+              emptyDir: {},
+            },
+            // ...get('wrongsecrets.volumes', []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
