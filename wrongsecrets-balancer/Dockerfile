@@ -1,11 +1,11 @@
-FROM node:22-alpine as build
+FROM node:22-alpine AS build
 RUN mkdir -p /home/app
 WORKDIR /home/app
 COPY package.json package-lock.json ./
 RUN npm install
 RUN npm ci --omit=dev
 
-FROM node:22-alpine as ui
+FROM node:22-alpine AS ui
 RUN mkdir -p /home/app
 WORKDIR /home/app
 COPY ui/package.json ui/package-lock.json ./
@@ -23,5 +23,5 @@ COPY --from=ui --chown=app:app /home/app/build/ ./public/
 COPY --chown=app:app ./src src/
 USER 1001
 EXPOSE 8080
-ENV NODE_ENV ${NODE_ENV:-production}
+ENV NODE_ENV=${NODE_ENV:-production}
 CMD ["node", "/home/app/src/index.js"]

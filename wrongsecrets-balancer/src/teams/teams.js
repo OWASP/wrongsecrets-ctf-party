@@ -73,7 +73,7 @@ const cookieSettings = {
  */
 async function interceptAdminLogin(req, res, next) {
   const { team } = req.params;
-  const { passcode } = req.body;
+  const passcode = req.body && req.body.passcode;
 
   if (team === get('admin.username') && passcode === get('admin.password')) {
     loginCounter.inc({ type: 'login', userType: 'admin' }, 1);
@@ -376,7 +376,11 @@ async function createTeam(req, res) {
       });
   } catch (error) {
     logger.error(`Error while creating deployment or service for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    if (!res.headersSent) {
+      res.status(500).send({ message: 'Failed to Create Instance' });
+    } else {
+      logger.error('Could not send error response because headers were already sent');
+    }
   }
 }
 
