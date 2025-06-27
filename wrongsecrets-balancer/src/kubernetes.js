@@ -613,8 +613,6 @@ const patchServiceAccountForTeamForAWS = async (team) => {
       },
     },
   };
-  const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
-
   return k8sCoreApi
     .patchNamespacedServiceAccount({
       name: 'default',
@@ -625,7 +623,6 @@ const patchServiceAccountForTeamForAWS = async (team) => {
       fieldManager: undefined,
       fieldValidation: undefined,
       force: undefined,
-      pretty: undefined,
       headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH },
     })
     .catch((error) => {
@@ -674,22 +671,6 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
             runAsGroup: 2000,
             fsGroup: 2000,
           },
-          volumes: [
-            {
-              name: 'secrets-store-inline',
-              csi: {
-                driver: 'secrets-store.csi.k8s.io',
-                readOnly: true,
-                volumeAttributes: {
-                  secretProviderClass: 'wrongsecrets-aws-secretsmanager',
-                },
-              },
-            },
-            {
-              name: 'ephemeral',
-              emptyDir: {},
-            },
-          ],
           containers: [
             {
               name: 'wrongsecrets',
@@ -830,17 +811,20 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
             },
           ],
           volumes: [
-            // {
-            //   name: 'wrongsecrets-config',
-            //   configMap: {
-            //     name: 'wrongsecrets-config',
-            //   },
-            // },
+            {
+              name: 'secrets-store-inline',
+              csi: {
+                driver: 'secrets-store.csi.k8s.io',
+                readOnly: true,
+                volumeAttributes: {
+                  secretProviderClass: 'wrongsecrets-aws-secretsmanager',
+                },
+              },
+            },
             {
               name: 'ephemeral',
               emptyDir: {},
             },
-            // ...get('wrongsecrets.volumes', []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
@@ -948,22 +932,6 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
             runAsGroup: 2000,
             fsGroup: 2000,
           },
-          volumes: [
-            {
-              name: 'secrets-store-inline',
-              csi: {
-                driver: 'secrets-store.csi.k8s.io',
-                readOnly: true,
-                volumeAttributes: {
-                  secretProviderClass: 'azure-wrongsecrets-vault',
-                },
-              },
-            },
-            {
-              name: 'ephemeral',
-              emptyDir: {},
-            },
-          ],
           containers: [
             {
               name: 'wrongsecrets',
@@ -1130,17 +1098,20 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
             },
           ],
           volumes: [
-            // {
-            //   name: 'wrongsecrets-config',
-            //   configMap: {
-            //     name: 'wrongsecrets-config',
-            //   },
-            // },
+            {
+              name: 'secrets-store-inline',
+              csi: {
+                driver: 'secrets-store.csi.k8s.io',
+                readOnly: true,
+                volumeAttributes: {
+                  secretProviderClass: 'azure-wrongsecrets-vault',
+                },
+              },
+            },
             {
               name: 'ephemeral',
               emptyDir: {},
             },
-            // ...get('wrongsecrets.volumes', []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
@@ -2162,22 +2133,6 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
             runAsGroup: 2000,
             fsGroup: 2000,
           },
-          volumes: [
-            {
-              name: 'secrets-store-inline',
-              csi: {
-                driver: 'secrets-store.csi.k8s.io',
-                readOnly: true,
-                volumeAttributes: {
-                  secretProviderClass: 'wrongsecrets-gcp-secretsmanager',
-                },
-              },
-            },
-            {
-              name: 'ephemeral',
-              emptyDir: {},
-            },
-          ],
           containers: [
             {
               name: 'wrongsecrets',
@@ -2318,17 +2273,20 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
             },
           ],
           volumes: [
-            // {
-            //   name: 'wrongsecrets-config',
-            //   configMap: {
-            //     name: 'wrongsecrets-config',
-            //   },
-            // },
+            {
+              name: 'secrets-store-inline',
+              csi: {
+                driver: 'secrets-store.csi.k8s.io',
+                readOnly: true,
+                volumeAttributes: {
+                  secretProviderClass: 'wrongsecrets-gcp-secretsmanager',
+                },
+              },
+            },
             {
               name: 'ephemeral',
               emptyDir: {},
             },
-            // ...get('wrongsecrets.volumes', []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
