@@ -129,7 +129,11 @@ const checkSealedSecretsController = async () => {
   try {
     logger.info('Checking Sealed Secrets controller deployment status...');
     const response = await safeApiCall(
-      () => k8sAppsApi.readNamespacedDeployment({name: 'ws-sealedsecrets-sealed-secrets', namespace:'kube-system'}),
+      () =>
+        k8sAppsApi.readNamespacedDeployment({
+          name: 'ws-sealedsecrets-sealed-secrets',
+          namespace: 'kube-system',
+        }),
       'Check Sealed Secrets controller'
     );
     const deployment = response;
@@ -154,7 +158,7 @@ const getJuiceShopInstanceForTeamname = async (teamname) => {
     logger.info(`Checking deployment for ${deploymentName} in namespace ${namespace}`);
     // FIX: Correct parameter order - name first, then namespace
     const res = await safeApiCall(
-      () => k8sAppsApi.readNamespacedDeployment({name: deploymentName, namespace: namespace}),
+      () => k8sAppsApi.readNamespacedDeployment({ name: deploymentName, namespace: namespace }),
       `Check deployment for team ${teamname}`
     );
     if (!res) {
@@ -198,9 +202,11 @@ const createConfigmapForTeam = async (team) => {
       namespace: `t-${team}`,
     },
   };
-  return k8sCoreApi.createNamespacedConfigMap({namespace: 't-' + team, body: configmap}).catch((error) => {
-    throw new Error(error.response.message);
-  });
+  return k8sCoreApi
+    .createNamespacedConfigMap({ namespace: 't-' + team, body: configmap })
+    .catch((error) => {
+      throw new Error(error.response.message);
+    });
 };
 
 const createSecretsfileForTeam = async (team) => {
@@ -216,9 +222,11 @@ const createSecretsfileForTeam = async (team) => {
       namespace: `t-${team}`,
     },
   };
-  return k8sCoreApi.createNamespacedSecret({namespace: 't-' + team, body: secret}).catch((error) => {
-    throw new Error(error.response.message);
-  });
+  return k8sCoreApi
+    .createNamespacedSecret({ namespace: 't-' + team, body: secret })
+    .catch((error) => {
+      throw new Error(error.response.message);
+    });
 };
 
 const createChallenge33SecretForTeam = async (team) => {
@@ -238,9 +246,11 @@ const createChallenge33SecretForTeam = async (team) => {
       },
     },
   };
-  return k8sCoreApi.createNamespacedSecret({namespace: 't-' + team, body: secret}).catch((error) => {
-    throw new Error(error.response.message);
-  });
+  return k8sCoreApi
+    .createNamespacedSecret({ namespace: 't-' + team, body: secret })
+    .catch((error) => {
+      throw new Error(error.response.message);
+    });
 };
 
 /**
@@ -281,7 +291,13 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
       },
     };
 
-    const response = await k8sCustomAPI.createNamespacedCustomObject({group: 'bitnami.com',version: 'v1alpha1', namespace: `t-${team}`, plural: 'sealedsecrets', body: sealedSecretManifest});
+    const response = await k8sCustomAPI.createNamespacedCustomObject({
+      group: 'bitnami.com',
+      version: 'v1alpha1',
+      namespace: `t-${team}`,
+      plural: 'sealedsecrets',
+      body: sealedSecretManifest,
+    });
 
     logger.info(`Created SealedSecret ${secretName} for team ${team}`);
     return response;
@@ -311,10 +327,10 @@ const createSealedChallenge33SecretForTeam = async (team) => {
  */
 const getSealedSecretsPublicKey = async () => {
   try {
-    const response = await k8sCoreApi.readNamespacedSecret(
-      {name: 'sealed-secrets-key',
-      namespace: 'kube-system'}
-    );
+    const response = await k8sCoreApi.readNamespacedSecret({
+      name: 'sealed-secrets-key',
+      namespace: 'kube-system',
+    });
     return response.data['tls.crt'];
   } catch (error) {
     logger.error('Failed to get Sealed Secrets public key:', error.body || error);
@@ -339,7 +355,7 @@ const createNameSpaceForTeam = async (team) => {
     },
   };
 
-  await k8sCoreApi.createNamespace({name: "t-"+team, body: namedNameSpace}).catch((error) => {
+  await k8sCoreApi.createNamespace({ name: 't-' + team, body: namedNameSpace }).catch((error) => {
     throw new Error(JSON.stringify(error));
   });
 
@@ -349,7 +365,9 @@ const createNameSpaceForTeam = async (team) => {
   if (sealedSecretsReady) {
     logger.info(`Sealed Secrets controller is ready, will create sealed secrets for team ${team}`);
   } else {
-    logger.warn(`Sealed Secrets controller not ready, falling back to regular secrets for team ${team}`);
+    logger.warn(
+      `Sealed Secrets controller not ready, falling back to regular secrets for team ${team}`
+    );
   }
 };
 
@@ -472,7 +490,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                       key: 'answer',
                     },
                   },
-               },
+                },
                 ...get('wrongsecrets.env', []),
               ],
               envFrom: get('wrongsecrets.envFrom'),
@@ -516,7 +534,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                 {
                   mountPath: '/tmp',
                   name: 'ephemeral',
-                }
+                },
               ],
             },
           ],
@@ -543,10 +561,18 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
     },
   };
   return k8sAppsApi
-    .createNamespacedDeployment({namespace:'t-' + team, body: deploymentWrongSecretsConfig})
+    .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
-      logger.error(`Failed to create deployment for team ${team}:`, error.body || error.message || error);
-      throw new Error(error.message || error.body?.message || 'Failed to create deployment for body: ' + JSON.stringify(deploymentWrongSecretsConfig, null, 2));
+      logger.error(
+        `Failed to create deployment for team ${team}:`,
+        error.body || error.message || error
+      );
+      throw new Error(
+        error.message ||
+          error.body?.message ||
+          'Failed to create deployment for body: ' +
+            JSON.stringify(deploymentWrongSecretsConfig, null, 2)
+      );
     });
 };
 
@@ -567,7 +593,13 @@ const createAWSSecretsProviderForTeam = async (team) => {
     },
   };
   return k8sCustomAPI
-    .createNamespacedCustomObject({group:'secrets-store.csi.x-k8s.io', version: 'v1', namespace: `t-${team}`, plural: 'secretproviderclasses', body: secretProviderClass})
+    .createNamespacedCustomObject({
+      group: 'secrets-store.csi.x-k8s.io',
+      version: 'v1',
+      namespace: `t-${team}`,
+      plural: 'secretproviderclasses',
+      body: secretProviderClass,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -594,7 +626,8 @@ const patchServiceAccountForTeamForAWS = async (team) => {
       fieldValidation: undefined,
       force: undefined,
       pretty: undefined,
-      headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH} },)
+      headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH },
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -796,7 +829,7 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
               ],
             },
           ],
-           volumes: [
+          volumes: [
             // {
             //   name: 'wrongsecrets-config',
             //   configMap: {
@@ -819,7 +852,7 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
     },
   };
   return k8sAppsApi
-    .createNamespacedDeployment({namespace: 't-' + team, body: deploymentWrongSecretsConfig})
+    .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
@@ -859,8 +892,13 @@ const createAzureSecretsProviderForTeam = async (team) => {
   };
 
   return k8sCustomAPI
-    .createNamespacedCustomObject({group:'secrets-store.csi.x-k8s.io',
-      version: 'v1', namespace: `t-${team}`, plural: 'secretproviderclasses', body: secretProviderClass})
+    .createNamespacedCustomObject({
+      group: 'secrets-store.csi.x-k8s.io',
+      version: 'v1',
+      namespace: `t-${team}`,
+      plural: 'secretproviderclasses',
+      body: secretProviderClass,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -1091,7 +1129,7 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
               ],
             },
           ],
-           volumes: [
+          volumes: [
             // {
             //   name: 'wrongsecrets-config',
             //   configMap: {
@@ -1114,7 +1152,7 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
     },
   };
   return k8sAppsApi
-    .createNamespacedDeployment({namespace: 't-' + team, body: deploymentWrongSecretsConfig})
+    .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
@@ -1126,7 +1164,10 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
 const getKubernetesEndpointToWhitelist = async () => {
   try {
     // FIX: Use correct parameter order and response structure
-    const response = await k8sCoreApi.readNamespacedEndpoints({name:'kubernetes', namespace:'default'});
+    const response = await k8sCoreApi.readNamespacedEndpoints({
+      name: 'kubernetes',
+      namespace: 'default',
+    });
     // FIX: Extract subsets from the correct response structure
     const subsets = response.subsets;
 
@@ -1524,49 +1565,55 @@ const createNSPsforTeam = async (team) => {
 
   logger.info(`applying nspAllowkubectl for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy({namespace: `t-${team}`, body: nspAllowkubectl})
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nspAllowkubectl })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nspDefaultDeny for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy({namespace: `t-${team}`, body: nspDefaultDeny})
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nspDefaultDeny })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowOnlyDNS for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy({namespace: `t-${team}`, body:nsAllowOnlyDNS})
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowOnlyDNS })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowBalancer for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy({namespace: `t-${team}`, body:nsAllowBalancer})
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowBalancer })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowWrongSecretstoVirtualDesktop for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy({namespace: `t-${team}`, body:nsAllowWrongSecretstoVirtualDesktop})
+    .createNamespacedNetworkPolicy({
+      namespace: `t-${team}`,
+      body: nsAllowWrongSecretstoVirtualDesktop,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowVirtualDesktoptoWrongSecrets for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy({namespace: `t-${team}`, body:nsAllowVirtualDesktoptoWrongSecrets})
+    .createNamespacedNetworkPolicy({
+      namespace: `t-${team}`,
+      body: nsAllowVirtualDesktoptoWrongSecrets,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying broaderallow for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy({namespace: `t-${team}`, body: broaderallow})
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: broaderallow })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowToDoKubeCTLFromWebTop for ${team}`);
   return k8sNetworkingApi
-    .createNamespacedNetworkPolicy({namespace: `t-${team}`, body: nsAllowToDoKubeCTLFromWebTop})
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowToDoKubeCTLFromWebTop })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -1584,9 +1631,11 @@ const createServiceAccountForWebTop = async (team) => {
       namespace: `t-${team}`,
     },
   };
-  return k8sCoreApi.createNamespacedServiceAccount({namespace: `t-${team}`, body: webtopSA}).catch((error) => {
-    throw new Error(JSON.stringify(error));
-  });
+  return k8sCoreApi
+    .createNamespacedServiceAccount({ namespace: `t-${team}`, body: webtopSA })
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
 };
 
 const createRoleForWebTop = async (team) => {
@@ -1620,9 +1669,11 @@ const createRoleForWebTop = async (team) => {
       },
     ],
   };
-  return k8sRBACAPI.createNamespacedRole({namespace:`t-${team}`, body: roleDefinitionForWebtop}).catch((error) => {
-    throw new Error(JSON.stringify(error));
-  });
+  return k8sRBACAPI
+    .createNamespacedRole({ namespace: `t-${team}`, body: roleDefinitionForWebtop })
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
 };
 
 const createRoleBindingForWebtop = async (team) => {
@@ -1640,7 +1691,7 @@ const createRoleBindingForWebtop = async (team) => {
     },
   };
   return k8sRBACAPI
-    .createNamespacedRoleBinding({namespace: `t-${team}`, body:roleBindingforWebtop})
+    .createNamespacedRoleBinding({ namespace: `t-${team}`, body: roleBindingforWebtop })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -1768,7 +1819,10 @@ const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
   };
 
   return k8sAppsApi
-    .createNamespacedDeployment({namespace: 't-' + team, body: deploymentWrongSecretsDesktopConfig})
+    .createNamespacedDeployment({
+      namespace: 't-' + team,
+      body: deploymentWrongSecretsDesktopConfig,
+    })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
@@ -1776,29 +1830,32 @@ const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
 
 const createServiceForTeam = async (teamname) => {
   return k8sCoreApi
-    .createNamespacedService({namespace: 't-' + teamname, body: {
-      metadata: {
-        namespace: `t-${teamname}`,
-        name: `t-${teamname}-wrongsecrets`,
-        labels: {
-          app: 'wrongsecrets',
-          team: teamname,
-          'deployment-context': get('deploymentContext'),
-        },
-      },
-      spec: {
-        selector: {
-          app: 'wrongsecrets',
-          team: teamname,
-          'deployment-context': get('deploymentContext'),
-        },
-        ports: [
-          {
-            port: 8080,
+    .createNamespacedService({
+      namespace: 't-' + teamname,
+      body: {
+        metadata: {
+          namespace: `t-${teamname}`,
+          name: `t-${teamname}-wrongsecrets`,
+          labels: {
+            app: 'wrongsecrets',
+            team: teamname,
+            'deployment-context': get('deploymentContext'),
           },
-        ],
+        },
+        spec: {
+          selector: {
+            app: 'wrongsecrets',
+            team: teamname,
+            'deployment-context': get('deploymentContext'),
+          },
+          ports: [
+            {
+              port: 8080,
+            },
+          ],
+        },
       },
-    }})
+    })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
@@ -1806,30 +1863,33 @@ const createServiceForTeam = async (teamname) => {
 
 const createDesktopServiceForTeam = async (teamname) => {
   return k8sCoreApi
-    .createNamespacedService({namespace: 't-' + teamname, body: {
-      metadata: {
-        name: `t-${teamname}-virtualdesktop`,
-        namespace: `t-${teamname}`,
-        labels: {
-          app: 'virtualdesktop',
-          team: teamname,
-          'deployment-context': get('deploymentContext'),
-        },
-      },
-      spec: {
-        selector: {
-          app: 'virtualdesktop',
-          team: teamname,
-          'deployment-context': get('deploymentContext'),
-        },
-        ports: [
-          {
-            port: 8080,
-            targetPort: 3000,
+    .createNamespacedService({
+      namespace: 't-' + teamname,
+      body: {
+        metadata: {
+          name: `t-${teamname}-virtualdesktop`,
+          namespace: `t-${teamname}`,
+          labels: {
+            app: 'virtualdesktop',
+            team: teamname,
+            'deployment-context': get('deploymentContext'),
           },
-        ],
+        },
+        spec: {
+          selector: {
+            app: 'virtualdesktop',
+            team: teamname,
+            'deployment-context': get('deploymentContext'),
+          },
+          ports: [
+            {
+              port: 8080,
+              targetPort: 3000,
+            },
+          ],
+        },
       },
-    }})
+    })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
@@ -1844,9 +1904,8 @@ const getJuiceShopInstances = () => {
       _continue: undefined,
       fieldSelector: undefined,
       labelSelector: 'app in (wrongsecrets, virtualdesktop)',
-      limit: 200
-    }
-    )
+      limit: 200,
+    })
     .catch((error) => {
       logger.info(error);
       throw new Error(error.response.body.message);
@@ -1855,11 +1914,12 @@ const getJuiceShopInstances = () => {
 
 const updateLastRequestTimestampForTeam = (teamname) => {
   const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
-  return k8sAppsApi.patchNamespacedDeployment({
-    name: `t-${teamname}-wrongsecrets`,
-    namespace: `t-${teamname}`,
-    options: options,
-  },
+  return k8sAppsApi.patchNamespacedDeployment(
+    {
+      name: `t-${teamname}-wrongsecrets`,
+      namespace: `t-${teamname}`,
+      options: options,
+    },
     {
       metadata: {
         annotations: {
@@ -1887,17 +1947,29 @@ const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
     },
   };
 
-  return k8sAppsApi.patchNamespacedDeployment({ name: `t-${teamname}-wrongsecrets`, namespace: `t-${teamname}`, body: deploymentPatch, options: options })
+  return k8sAppsApi.patchNamespacedDeployment({
+    name: `t-${teamname}-wrongsecrets`,
+    namespace: `t-${teamname}`,
+    body: deploymentPatch,
+    options: options,
+  });
 };
 
 const deleteNamespaceForTeam = async (team) => {
-  await k8sCoreApi.deleteNamespace({name:`t-${team}`}).catch((error) => {
+  await k8sCoreApi.deleteNamespace({ name: `t-${team}` }).catch((error) => {
     throw new Error(error.response.body.message);
   });
 };
 
 const deletePodForTeam = async (team) => {
-  const res = await k8sCoreApi.listNamespacedPod({namespace: `t-${team}`, pretty: true, allowWatchBookmarks: true, _continue: undefined, fieldSelector: undefined, labelSelector: `app=wrongsecrets,team=${team},deployment-context=${get('deploymentContext')}`});
+  const res = await k8sCoreApi.listNamespacedPod({
+    namespace: `t-${team}`,
+    pretty: true,
+    allowWatchBookmarks: true,
+    _continue: undefined,
+    fieldSelector: undefined,
+    labelSelector: `app=wrongsecrets,team=${team},deployment-context=${get('deploymentContext')}`,
+  });
 
   const pods = res.items;
 
@@ -1907,11 +1979,18 @@ const deletePodForTeam = async (team) => {
 
   const podname = pods[0].metadata.name;
 
-  await k8sCoreApi.deleteNamespacedPod({name: podname, namespace: `t-${team}`});
+  await k8sCoreApi.deleteNamespacedPod({ name: podname, namespace: `t-${team}` });
 };
 
 const deleteDesktopPodForTeam = async (team) => {
-  const res = await k8sCoreApi.listNamespacedPod({namespace: `t-${team}`, pretty: true, allowWatchBookmarks: true, _continue: undefined, fieldSelector: undefined, labelSelector: `app=virtualdesktop,team=${team},deployment-context=${get('deploymentContext')}`});
+  const res = await k8sCoreApi.listNamespacedPod({
+    namespace: `t-${team}`,
+    pretty: true,
+    allowWatchBookmarks: true,
+    _continue: undefined,
+    fieldSelector: undefined,
+    labelSelector: `app=virtualdesktop,team=${team},deployment-context=${get('deploymentContext')}`,
+  });
 
   const pods = res.items;
 
@@ -1921,7 +2000,7 @@ const deleteDesktopPodForTeam = async (team) => {
 
   const podname = pods[0].metadata.name;
 
-  await k8sCoreApi.deleteNamespacedPod({name: podname, namespace: `t-${team}`});
+  await k8sCoreApi.deleteNamespacedPod({ name: podname, namespace: `t-${team}` });
 };
 
 // Add missing GCP functions if they don't exist
@@ -1947,10 +2026,13 @@ const createGCPSecretsProviderForTeam = async (team) => {
     },
   };
   return k8sCustomAPI
-    .createNamespacedCustomObject({group:'secrets-store.csi.x-k8s.io',
+    .createNamespacedCustomObject({
+      group: 'secrets-store.csi.x-k8s.io',
       version: 'v1',
       namespace: `t-${team}`,
-      plural: 'secretproviderclasses', body: secretProviderClass})
+      plural: 'secretproviderclasses',
+      body: secretProviderClass,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -2023,7 +2105,16 @@ const patchServiceAccountForTeamForGCP = async (team) => {
   const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
 
   return k8sCoreApi
-    .patchNamespacedServiceAccount({name: 'default', namespace: `t-${team}`, body: patch}, undefined, undefined, undefined, undefined, undefined, undefined, options)
+    .patchNamespacedServiceAccount(
+      { name: 'default', namespace: `t-${team}`, body: patch },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      options
+    )
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -2226,7 +2317,7 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
               ],
             },
           ],
-           volumes: [
+          volumes: [
             // {
             //   name: 'wrongsecrets-config',
             //   configMap: {
@@ -2249,7 +2340,7 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
     },
   };
   return k8sAppsApi
-    .createNamespacedDeployment({namespace:'t-' + team, body: deploymentWrongSecretsConfig})
+    .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
