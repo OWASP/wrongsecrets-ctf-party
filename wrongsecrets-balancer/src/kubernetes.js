@@ -371,6 +371,187 @@ const createNameSpaceForTeam = async (team) => {
   }
 };
 
+// Fill in the createK8sChallenge53DeploymentForTeam function
+const createK8sChallenge53DeploymentForTeam = async ({ team, passcodeHash }) => {
+  logger.info(`Creating Challenge 53 deployment for team ${team}`);
+
+  const deploymentChallenge53Config = {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: 'secret-challenge-53',
+      namespace: `t-${team}`,
+      labels: {
+        app: 'secret-challenge-53',
+        team: `${team}`,
+        'deployment-context': get('deploymentContext'),
+      },
+      annotations: {
+        'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
+        'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+        'wrongsecrets-ctf-party/passcode': passcodeHash,
+        'wrongsecrets-ctf-party/challengesSolved': '0',
+        'wrongsecrets-ctf-party/challenges': '[]',
+      },
+    },
+    spec: {
+      progressDeadlineSeconds: 20,
+      replicas: 1,
+      revisionHistoryLimit: 10,
+      selector: {
+        matchLabels: {
+          app: 'secret-challenge-53',
+          team: `${team}`,
+          'deployment-context': get('deploymentContext'),
+        },
+      },
+      template: {
+        metadata: {
+          labels: {
+            app: 'secret-challenge-53',
+            team: `${team}`,
+            'deployment-context': get('deploymentContext'),
+          },
+          name: 'secret-challenge-53',
+        },
+        spec: {
+          securityContext: {
+            runAsUser: 2000,
+            runAsGroup: 2000,
+            fsGroup: 2000,
+          },
+          containers: [
+            {
+              image: 'jeroenwillemsen/wrongsecrets-challenge53:1.12.0',
+              name: 'secret-challenge-53',
+              imagePullPolicy: 'IfNotPresent',
+              resources: {
+                requests: {
+                  memory: '32Mi',
+                  cpu: '50m',
+                  'ephemeral-storage': '100Mi',
+                },
+                limits: {
+                  memory: '64Mi',
+                  cpu: '100m',
+                  'ephemeral-storage': '200Mi',
+                },
+              },
+              securityContext: {
+                capabilities: {
+                  drop: ['ALL'],
+                },
+                allowPrivilegeEscalation: false,
+                readOnlyRootFilesystem: true,
+                runAsNonRoot: true,
+                privileged: false,
+                seccompProfile: {
+                  type: 'RuntimeDefault',
+                },
+              },
+              env: [
+                {
+                  name: 'TEAM_NAME',
+                  value: team,
+                },
+                {
+                  name: 'DEPLOYMENT_CONTEXT',
+                  value: get('deploymentContext'),
+                },
+              ],
+              volumeMounts: [
+                {
+                  mountPath: '/tmp',
+                  name: 'ephemeral',
+                },
+              ],
+            },
+          ],
+          volumes: [
+            {
+              name: 'ephemeral',
+              emptyDir: {},
+            },
+          ],
+          tolerations: get('wrongsecrets.tolerations'),
+          affinity: get('wrongsecrets.affinity'),
+          runtimeClassName: get('wrongsecrets.runtimeClassName')
+            ? get('wrongsecrets.runtimeClassName')
+            : undefined,
+        },
+      },
+    },
+  };
+
+  try {
+    logger.info(`Deploying Challenge 53 to namespace t-${team}`);
+    const response = await k8sAppsApi.createNamespacedDeployment(
+      `t-${team}`,
+      deploymentChallenge53Config
+    );
+    logger.info(`Successfully created Challenge 53 deployment for team ${team}`);
+    return response;
+  } catch (error) {
+    logger.error(`Failed to create Challenge 53 deployment for team ${team}:`, error.message);
+    throw new Error(`Failed to create Challenge 53 deployment: ${error.message}`);
+  }
+};
+
+// Add helper function to check Challenge 53 deployment status
+const getChallenge53InstanceForTeam = async (team) => {
+  logger.info(`Checking Challenge 53 deployment status for team ${team}`);
+
+  try {
+    const validatedTeamName = validateTeamName(team);
+    const deploymentName = 'secret-challenge-53';
+    const namespace = `t-${validatedTeamName}`;
+
+    logger.info(`Checking Challenge 53 deployment ${deploymentName} in namespace ${namespace}`);
+
+    const res = await safeApiCall(
+      () => k8sAppsApi.readNamespacedDeployment(deploymentName, namespace),
+      `Check Challenge 53 deployment for team ${team}`
+    );
+
+    if (!res || !res.body) {
+      logger.info(`No Challenge 53 deployment found for team ${team}`);
+      return undefined;
+    }
+
+    const deployment = res.body;
+
+    return {
+      readyReplicas: deployment.status?.readyReplicas || 0,
+      availableReplicas: deployment.status?.availableReplicas || 0,
+      replicas: deployment.status?.replicas || 0,
+      conditions: deployment.status?.conditions || [],
+    };
+  } catch (error) {
+    logger.error(`Error checking Challenge 53 deployment for team ${team}:`, error.message);
+    if (error.message && error.message.includes('not found')) {
+      return undefined;
+    }
+    throw error;
+  }
+};
+
+// Add function to delete Challenge 53 deployment
+const deleteChallenge53DeploymentForTeam = async (team) => {
+  logger.info(`Deleting Challenge 53 deployment for team ${team}`);
+
+  try {
+    await k8sAppsApi.deleteNamespacedDeployment('secret-challenge-53', `t-${team}`);
+    logger.info(`Successfully deleted Challenge 53 deployment for team ${team}`);
+  } catch (error) {
+    if (error.statusCode === 404) {
+      logger.warn(`Challenge 53 deployment not found for team ${team}, nothing to delete`);
+      return;
+    }
+    logger.error(`Failed to delete Challenge 53 deployment for team ${team}:`, error.message);
+    throw new Error(`Failed to delete Challenge 53 deployment: ${error.message}`);
+  }
+};
+
 /**
  * Enhanced deployment creation with SealedSecret integration
  */
@@ -2320,6 +2501,9 @@ module.exports = {
   getSealedSecretsPublicKey,
   createNameSpaceForTeam,
   createK8sDeploymentForTeam,
+  createK8sChallenge53DeploymentForTeam,
+  getChallenge53InstanceForTeam,
+  deleteChallenge53DeploymentForTeam,
 
   // AWS functions
   createAWSSecretsProviderForTeam,
