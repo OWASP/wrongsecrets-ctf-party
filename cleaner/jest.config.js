@@ -1,4 +1,7 @@
 module.exports = {
   setupFiles: ['./.jest/setEnvVars.js'],
-  // ... other configurations
+  testEnvironment: 'node',
+  moduleNameMapper: {
+    '^@kubernetes/client-node$': '<rootDir>/.jest/__mocks__/@kubernetes/client-node.js'
+  }
 };
