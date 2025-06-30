@@ -7,6 +7,7 @@ const {
   deletePodForTeam,
   deleteNamespaceForTeam,
   deleteDesktopPodForTeam,
+  deleteChallenge53DeploymentForTeam,
 } = require('../kubernetes');
 
 const { get } = require('../config');
@@ -88,6 +89,18 @@ async function restartDesktopInstance(req, res) {
   }
 }
 
+async function restartChallenge53Deployment(req, res) {
+  try {
+    const teamname = req.params.team;
+    logger.info(`Restarting challenge53 for team: '${teamname}'`);
+    await deleteChallenge53DeploymentForTeam(teamname);
+    res.send();
+  } catch (error) {
+    logger.error(error);
+    res.status(500).send();
+  }
+}
+
 /**
  * @param {import("express").Request} req
  * @param {import("express").Response} res
@@ -110,5 +123,6 @@ router.all('*', ensureAdminLogin);
 router.get('/all', listInstances);
 router.post('/teams/:team/restart', restartInstance);
 router.post('/teams/:team/restartdesktop', restartDesktopInstance);
+router.post('/teams/:team/restartchallenge53', restartChallenge53Deployment);
 router.delete('/teams/:team/delete', deleteInstance);
 module.exports = router;

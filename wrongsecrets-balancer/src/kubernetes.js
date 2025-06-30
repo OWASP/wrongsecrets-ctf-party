@@ -379,7 +379,7 @@ const createK8sChallenge53DeploymentForTeam = async ({ team, passcodeHash }) => 
     apiVersion: 'apps/v1',
     kind: 'Deployment',
     metadata: {
-      name: 'secret-challenge-53',
+      name: `t-${team}-secret-challenge-53`,
       namespace: `t-${team}`,
       labels: {
         app: 'secret-challenge-53',
@@ -485,10 +485,11 @@ const createK8sChallenge53DeploymentForTeam = async ({ team, passcodeHash }) => 
 
   try {
     logger.info(`Deploying Challenge 53 to namespace t-${team}`);
-    const response = await k8sAppsApi.createNamespacedDeployment(
-      `t-${team}`,
-      deploymentChallenge53Config
-    );
+    const response = await k8sAppsApi.createNamespacedDeployment({
+      namespace: `t-${team}`,
+      body: deploymentChallenge53Config,
+    });
+
     logger.info(`Successfully created Challenge 53 deployment for team ${team}`);
     return response;
   } catch (error) {
@@ -503,13 +504,13 @@ const getChallenge53InstanceForTeam = async (team) => {
 
   try {
     const validatedTeamName = validateTeamName(team);
-    const deploymentName = 'secret-challenge-53';
+    const deploymentName = `t-${validatedTeamName}-secret-challenge-53`;
     const namespace = `t-${validatedTeamName}`;
 
     logger.info(`Checking Challenge 53 deployment ${deploymentName} in namespace ${namespace}`);
 
     const res = await safeApiCall(
-      () => k8sAppsApi.readNamespacedDeployment(deploymentName, namespace),
+      () => k8sAppsApi.readNamespacedDeployment({ name: deploymentName, namespace: namespace }),
       `Check Challenge 53 deployment for team ${team}`
     );
 
@@ -540,7 +541,9 @@ const deleteChallenge53DeploymentForTeam = async (team) => {
   logger.info(`Deleting Challenge 53 deployment for team ${team}`);
 
   try {
-    await k8sAppsApi.deleteNamespacedDeployment('secret-challenge-53', `t-${team}`);
+    const validatedTeamName = validateTeamName(team);
+    const deploymentName = `t-${validatedTeamName}-secret-challenge-53`;
+    await k8sAppsApi.deleteNamespacedDeployment({ name: deploymentName, namespace: `t-${team}` });
     logger.info(`Successfully deleted Challenge 53 deployment for team ${team}`);
   } catch (error) {
     if (error.statusCode === 404) {
@@ -2055,7 +2058,7 @@ const getJuiceShopInstances = () => {
       allowWatchBookmarks: true,
       _continue: undefined,
       fieldSelector: undefined,
-      labelSelector: 'app in (wrongsecrets, virtualdesktop)',
+      labelSelector: 'app in (wrongsecrets, virtualdesktop, secret-challenge-53)',
       limit: 200,
     })
     .catch((error) => {
