@@ -102,8 +102,6 @@ const safeApiCall = async (apiCall, operation) => {
       logger.error(`Invalid API call function provided for operation: ${operation}`);
       throw new Error(`Invalid API call function provided for operation: ${operation}`);
     }
-    logger.info(`API call arguments: ${JSON.stringify(apiCall, null, 2)}`);
-
     const response = await apiCall();
     logger.info(`API call ${operation} completed successfully`);
     return response;
@@ -2074,7 +2072,7 @@ const getJuiceShopInstances = () => {
       limit: 200,
     })
     .catch((error) => {
-      logger.info(error);
+      logger.info("error for getJuiceShopInstances: {}", error);
       throw new Error(error.response.body.message);
     });
 };
@@ -2085,22 +2083,20 @@ const updateLastRequestTimestampForTeam = (teamname) => {
     {
       name: `t-${teamname}-wrongsecrets`,
       namespace: `t-${teamname}`,
-      options: options,
-    },
-    {
-      metadata: {
-        annotations: {
-          'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
-          'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+      body: {
+        metadata: {
+          annotations: {
+            'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
+            'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+          },
         },
       },
+      options: options,
     },
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    options
+    ).catch((error) => {
+      logger.info("error for updateLastRequestTimestampForTeam: {}", error);
+      throw new Error(error.response.body.message);
+    }
   );
 };
 

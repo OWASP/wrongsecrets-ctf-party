@@ -32,29 +32,47 @@ function ensureAdminLogin(req, res, next) {
  * @param {import("express").Response} res
  */
 async function listInstances(req, res) {
-  logger.debug('Running list all');
-  const {
-    body: { items: instances },
-  } = await getJuiceShopInstances();
+  try {
+    logger.info('Listing all team instances');
 
-  return res.json({
-    instances: instances.map((instance) => {
-      let team = instance.metadata.labels.team;
-      if (team === '') {
-        team = 'kubelet-ignore-this';
-      }
-      return {
-        team,
-        name: instance.metadata.name,
-        ready: instance.status.availableReplicas === 1,
-        createdAt: instance.metadata.creationTimestamp.getTime(),
-        lastConnect: parseInt(
-          instance.metadata.annotations['wrongsecrets-ctf-party/lastRequest'],
-          10
-        ),
-      };
-    }),
-  });
+    const instances = await getJuiceShopInstances();
+
+    // Fix: Check if instances and instances.body exist
+    if (!instances || !instances.items) {
+      logger.warn('No instances found or invalid response structure');
+      return res.status(200).json({
+        items: [],
+      });
+    }
+
+    const teams = instances.items
+      .filter((deployment) => deployment.metadata.labels.app === 'wrongsecrets')
+      .map((deployment) => {
+        const team = deployment.metadata.labels.team;
+        const annotations = deployment.metadata.annotations || {};
+
+        return {
+          team,
+          name: deployment.metadata.name,
+          ready: deployment.status?.readyReplicas > 0,
+          createdAt: new Date(deployment.metadata.creationTimestamp),
+          lastConnect: new Date(
+            parseInt(annotations['wrongsecrets-ctf-party/lastRequest']) ||
+              deployment.metadata.creationTimestamp
+          ),
+        };
+      });
+
+    res.status(200).json({
+      items: teams,
+    });
+  } catch (error) {
+    logger.error('Error listing instances:', error.message);
+    res.status(500).json({
+      error: 'Failed to list instances',
+      message: error.message,
+    });
+  }
 }
 
 /**
