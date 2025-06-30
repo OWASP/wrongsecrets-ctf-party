@@ -1816,17 +1816,13 @@ const createRoleForWebTop = async (team) => {
         apiGroups: [''],
         resources: ['pods/exec'],
         verbs: ['create'],
-        resourceNames: [
-          `t-${team}-secret-challenge-53*`,
-        ],
+        resourceNames: [`t-${team}-secret-challenge-53*`],
       },
       {
         apiGroups: [''],
         resources: ['pods'],
         verbs: ['patch', 'update'],
-        resourceNames: [
-          `t-${team}-secret-challenge-53*`,
-        ],
+        resourceNames: [`t-${team}-secret-challenge-53*`],
       },
       {
         apiGroups: [''],

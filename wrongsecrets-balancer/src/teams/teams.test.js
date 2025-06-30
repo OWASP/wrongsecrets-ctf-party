@@ -144,7 +144,7 @@ test('create team creates a instance for team via k8s service', async () => {
     throw new Error(`deployments.apps "t-team42-wrongsecrets" not found`);
   });
 
-    // Add mock for Challenge 53 deployment
+  // Add mock for Challenge 53 deployment
   createK8sChallenge53DeploymentForTeam.mockImplementation(async () => {
     return {
       body: {
