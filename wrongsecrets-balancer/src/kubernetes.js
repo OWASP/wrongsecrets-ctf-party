@@ -422,7 +422,7 @@ const createK8sChallenge53DeploymentForTeam = async ({ team, passcodeHash }) => 
           },
           containers: [
             {
-              image: 'jeroenwillemsen/wrongsecrets-challenge53:1.12.0',
+              image: `jeroenwillemsen/wrongsecrets-challenge53:${wrongSecretsDekstopTag}`,
               name: 'secret-challenge-53',
               imagePullPolicy: 'IfNotPresent',
               resources: {
