@@ -17,6 +17,7 @@ module.exports = {
     availableReplicas: 1,
   })),
   getJuiceShopInstances: jest.fn(),
+  createK8sChallenge53DeploymentForTeam: jest.fn(),
   deletePodForTeam: jest.fn(),
   updateLastRequestTimestampForTeam: jest.fn(),
   changePasscodeHashForTeam: jest.fn(),

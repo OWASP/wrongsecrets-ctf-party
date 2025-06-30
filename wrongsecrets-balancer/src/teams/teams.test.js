@@ -9,6 +9,7 @@ const {
   getJuiceShopInstanceForTeamname,
   getJuiceShopInstances,
   createK8sDeploymentForTeam,
+  createK8sChallenge53DeploymentForTeam,
   createDesktopDeploymentForTeam,
   createServiceForTeam,
   createNameSpaceForTeam,
@@ -21,7 +22,6 @@ const {
   createRoleForWebTop,
   createRoleBindingForWebtop,
   createNSPsforTeam,
-  createK8sChallenge53DeploymentForTeam,
 } = require('../kubernetes');
 
 afterEach(() => {
@@ -142,6 +142,18 @@ test('create team fails when max instances is reached', async () => {
 test('create team creates a instance for team via k8s service', async () => {
   getJuiceShopInstanceForTeamname.mockImplementation(async () => {
     throw new Error(`deployments.apps "t-team42-wrongsecrets" not found`);
+  });
+
+    // Add mock for Challenge 53 deployment
+  createK8sChallenge53DeploymentForTeam.mockImplementation(async () => {
+    return {
+      body: {
+        metadata: {
+          name: 'secret-challenge-53',
+          namespace: 't-team42',
+        },
+      },
+    };
   });
 
   let passcode = null;
