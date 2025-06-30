@@ -2072,15 +2072,15 @@ const getJuiceShopInstances = () => {
       limit: 200,
     })
     .catch((error) => {
-      logger.info("error for getJuiceShopInstances: {}", error);
+      logger.info('error for getJuiceShopInstances: {}', error);
       throw new Error(error.response.body.message);
     });
 };
 
 const updateLastRequestTimestampForTeam = (teamname) => {
   const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
-  return k8sAppsApi.patchNamespacedDeployment(
-    {
+  return k8sAppsApi
+    .patchNamespacedDeployment({
       name: `t-${teamname}-wrongsecrets`,
       namespace: `t-${teamname}`,
       body: {
@@ -2092,12 +2092,11 @@ const updateLastRequestTimestampForTeam = (teamname) => {
         },
       },
       options: options,
-    },
-    ).catch((error) => {
-      logger.info("error for updateLastRequestTimestampForTeam: {}", error);
+    })
+    .catch((error) => {
+      logger.info('error for updateLastRequestTimestampForTeam: {}', error);
       throw new Error(error.response.body.message);
-    }
-  );
+    });
 };
 
 const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
