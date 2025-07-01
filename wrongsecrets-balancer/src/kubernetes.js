@@ -260,18 +260,15 @@ const createChallenge33SecretForTeam = async (team) => {
  */
 const createChallenge48SecretForTeam = async (team, value) => {
   const sealedSecretCert = await getSealedSecretsPublicKey();
-  logger.info(`Cert: ${sealedSecretCert}`);
   const cert = forge.pki.certificateFromPem(sealedSecretCert);
   const key = cert.publicKey;
   const encrypted = key.encrypt(value, 'RSA-OAEP', {
     md: forge.md.sha256.create(),
     mgf1: { md: forge.md.sha1.create() },
   });
-  createSealedSecretForTeam(
-    team,
-    'challenge48secret',
-    Buffer.from(encrypted, 'binary').toString('base64')
-  );
+  const secretData = Buffer.from(encrypted, 'binary').toString('base64');
+
+  createSealedSecretForTeam(team, 'challenge48secret', secretData.toString());
 };
 
 /**
@@ -282,8 +279,7 @@ const createChallenge48SecretForTeam = async (team, value) => {
  */
 const createSealedSecretForTeam = async (team, secretName, secretData) => {
   try {
-    // Note: In production, you would seal the data using kubeseal CLI or the controller's public key
-    // For this example, we're creating a template that would need to be sealed externally
+    logger.info(`Secret data: ${secretData}`);
     const sealedSecretManifest = {
       apiVersion: 'bitnami.com/v1alpha1',
       kind: 'SealedSecret',
@@ -308,7 +304,7 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
           },
           type: 'Opaque',
         },
-        encryptedData: secretData, // This should be pre-sealed data
+        encryptedData: { secret: secretData },
       },
     };
 
@@ -349,11 +345,9 @@ const getSealedSecretsPublicKey = async () => {
   try {
     const list = await k8sCoreApi.listNamespacedSecret({
       namespace: 'kube-system',
-      labelSelector: { 'sealedsecrets.bitnami.com/sealed-secrets-key': 'active' },
+      labelSelector: 'sealedsecrets.bitnami.com/sealed-secrets-key=active',
       limit: 1,
     });
-    logger.info(`Anything? ${list}`);
-    logger.info(`Secret list: ${list.items}`);
     const secretName = list.items.map((secret) => secret.metadata.name).find((name) => name);
     const response = await k8sCoreApi.readNamespacedSecret({
       name: secretName,
@@ -781,9 +775,9 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
       );
       throw new Error(
         error.message ||
-        error.body?.message ||
-        'Failed to create deployment for body: ' +
-        JSON.stringify(deploymentWrongSecretsConfig, null, 2)
+          error.body?.message ||
+          'Failed to create deployment for body: ' +
+            JSON.stringify(deploymentWrongSecretsConfig, null, 2)
       );
     });
 };
