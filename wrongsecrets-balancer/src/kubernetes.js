@@ -350,7 +350,7 @@ const getSealedSecretsPublicKey = async () => {
       namespace: 'kube-system',
       labelSelector: { "sealedsecrets.bitnami.com/sealed-secrets-key": "active" },
     });
-    console.log(list.items);
+    logger.info(`Secret list: ${list.items}`);
     secretName = list.items[0].metadata.name;
     const response = await k8sCoreApi.readNamespacedSecret({
       name: secretName,
