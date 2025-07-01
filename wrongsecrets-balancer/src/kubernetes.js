@@ -255,10 +255,9 @@ const createChallenge33SecretForTeam = async (team) => {
 };
 
 /**
- * @param {string} team - The team name
- * @param {string} value - The challenge 48 secret
+ * @param {string} value - the value to be sealed
  */
-const createChallenge48SecretForTeam = async (team, value) => {
+const sealSecret = async (value) => {
   const sealedSecretCert = await getSealedSecretsPublicKey();
   const cert = forge.pki.certificateFromPem(sealedSecretCert);
   const key = cert.publicKey;
@@ -266,9 +265,16 @@ const createChallenge48SecretForTeam = async (team, value) => {
     md: forge.md.sha256.create(),
     mgf1: { md: forge.md.sha1.create() },
   });
-  const secretData = Buffer.from(encrypted, 'binary').toString('base64');
+  return Buffer.from(encrypted, 'binary').toString('base64');
+};
 
-  createSealedSecretForTeam(team, 'challenge48secret', secretData.toString());
+/**
+ * @param {string} team - The team name
+ * @param {string} value - The challenge 48 secret
+ */
+const createChallenge48SecretForTeam = async (team, value) => {
+  const secretValue = await sealSecret(value);
+  createSealedSecretForTeam(team, 'challenge48secret', { secret: secretValue });
 };
 
 /**
@@ -279,7 +285,7 @@ const createChallenge48SecretForTeam = async (team, value) => {
  */
 const createSealedSecretForTeam = async (team, secretName, secretData) => {
   try {
-    logger.info(`Secret data: ${secretData}`);
+    logger.info(`Secret name: ${secretName}, Secret data: ${JSON.stringify(secretData)}`);
     const sealedSecretManifest = {
       apiVersion: 'bitnami.com/v1alpha1',
       kind: 'SealedSecret',
@@ -304,7 +310,7 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
           },
           type: 'Opaque',
         },
-        encryptedData: { secret: secretData },
+        encryptedData: secretData,
       },
     };
 
@@ -329,13 +335,8 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
  * @param {string} team - The team name
  */
 const createSealedChallenge33SecretForTeam = async (team) => {
-  const secretName = 'challenge33';
-  const secretData = {
-    // Note: These values should be sealed using kubeseal before deployment
-    answer: challenge33Value || 'default-challenge33-value',
-  };
-
-  return createSealedSecretForTeam(team, secretName, secretData);
+  const secretValue = await sealSecret(challenge33Value || 'default-challenge33-value');
+  return createSealedSecretForTeam(team, 'challenge33', { answer: secretValue });
 };
 
 /**
