@@ -37,6 +37,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "^9.14.0",
+    "@types/bcryptjs": "^2.4.6",
     "cookie-signature": "^1.2.2",
     "eslint": "^9.14.0",
     "eslint-plugin-prettier": "^5.2.1",

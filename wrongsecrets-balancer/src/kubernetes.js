@@ -132,7 +132,7 @@ const checkSealedSecretsController = async () => {
     const response = await safeApiCall(
       () =>
         k8sAppsApi.readNamespacedDeployment({
-          name: 'ws-sealedsecrets-sealed-secrets',
+          name: 'sealed-secrets-controller',
           namespace: 'kube-system',
         }),
       'Check Sealed Secrets controller'
@@ -297,6 +297,9 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
           'app.kubernetes.io/instance': `wrongsecrets-${team}`,
           'app.kubernetes.io/part-of': 'wrongsecrets-ctf-party',
         },
+        annotations: {
+          'sealedsecrets.bitnami.com/namespace-wide': 'true',
+        },
       },
       spec: {
         template: {
@@ -306,6 +309,9 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
             labels: {
               'app.kubernetes.io/name': 'wrongsecrets',
               'app.kubernetes.io/instance': `wrongsecrets-${team}`,
+            },
+            annotations: {
+              'sealedsecrets.bitnami.com/namespace-wide': 'true',
             },
           },
           type: 'Opaque',
@@ -328,15 +334,6 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
     logger.error(`Failed to create SealedSecret for team ${team}:`, error.body || error);
     throw new Error(`Failed to create SealedSecret: ${error.message}`);
   }
-};
-
-/**
- * Create a sealed secret for challenge 33 specific to the team
- * @param {string} team - The team name
- */
-const createSealedChallenge33SecretForTeam = async (team) => {
-  const secretValue = await sealSecret(challenge33Value || 'default-challenge33-value');
-  return createSealedSecretForTeam(team, 'challenge33', { answer: secretValue });
 };
 
 /**
@@ -582,14 +579,6 @@ const deleteChallenge53DeploymentForTeam = async (team) => {
  * Enhanced deployment creation with SealedSecret integration
  */
 const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
-  // Check if we should use SealedSecrets
-  const useSealedSecrets = await checkSealedSecretsController();
-
-  if (useSealedSecrets) {
-    // Create sealed secrets for the team
-    await createSealedChallenge33SecretForTeam(team);
-  }
-
   const deploymentWrongSecretsConfig = {
     metadata: {
       namespace: `t-${team}`,
@@ -2542,7 +2531,6 @@ module.exports = {
   createSecretsfileForTeam,
   createChallenge33SecretForTeam,
   createSealedSecretForTeam,
-  createSealedChallenge33SecretForTeam,
   getSealedSecretsPublicKey,
   createNameSpaceForTeam,
   createK8sDeploymentForTeam,
