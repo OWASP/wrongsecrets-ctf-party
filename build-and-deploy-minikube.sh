@@ -15,7 +15,6 @@ echo "let's go!"
 
 echo "password base64 encoded: " + $(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}')
 
-
 kubectl port-forward service/wrongsecrets-balancer 3000:3000
 
 kubectl port-forward service/prometheus-server 9090:80

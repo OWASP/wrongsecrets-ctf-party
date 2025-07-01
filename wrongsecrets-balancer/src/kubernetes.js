@@ -1792,6 +1792,16 @@ const createServiceAccountForWebTop = async (team) => {
 };
 
 const createRoleForWebTop = async (team) => {
+ const res = await k8sCoreApi.listNamespacedPod({
+    namespace: `t-${team}`,
+    pretty: true,
+    allowWatchBookmarks: true,
+    _continue: undefined,
+    fieldSelector: undefined,
+    labelSelector: `app=secret-challenge-53,team=${team},deployment-context=${get('deploymentContext')}`,
+    limit: 1
+  });
+  const podName = res.items[0].metadata.name;
   const roleDefinitionForWebtop = {
     kind: 'Role',
     apiVersion: 'rbac.authorization.k8s.io/v1',
@@ -1814,13 +1824,13 @@ const createRoleForWebTop = async (team) => {
         apiGroups: [''],
         resources: ['pods/exec'],
         verbs: ['create'],
-        resourceNames: [`t-${team}-secret-challenge-53*`],
+        resourceNames: [`${podName}`],
       },
       {
         apiGroups: [''],
         resources: ['pods'],
         verbs: ['patch', 'update'],
-        resourceNames: [`t-${team}-secret-challenge-53*`],
+        resourceNames: [`${podName}`],
       },
       {
         apiGroups: [''],
@@ -2124,7 +2134,7 @@ const deleteNamespaceForTeam = async (team) => {
 };
 
 const deletePodForTeam = async (team) => {
-  const res = await k8sCoreApi.listNamespacedPod({
+ const res = await k8sCoreApi.listNamespacedPod({
     namespace: `t-${team}`,
     pretty: true,
     allowWatchBookmarks: true,
