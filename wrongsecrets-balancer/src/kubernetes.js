@@ -346,7 +346,7 @@ const createSealedChallenge33SecretForTeam = async (team) => {
  */
 const getSealedSecretsPublicKey = async () => {
   try {
-    const list = await k8sCoreApi.readNamespacedSecret({
+    const list = await k8sCoreApi.listNamespacedSecret({
       namespace: 'kube-system',
       labelSelector: { "sealedsecrets.bitnami.com/sealed-secrets-key": "active" },
     });
@@ -356,7 +356,7 @@ const getSealedSecretsPublicKey = async () => {
       name: secretName,
       namespace: 'kube-system',
     });
-    return response.data['tls.crt'];
+    return Buffer.from(response.data['tls.crt'], 'base64').toString('utf-8');
   } catch (error) {
     logger.error('Failed to get Sealed Secrets public key:', error.body || error);
     throw new Error(`Failed to get public key: ${error.message}`);
