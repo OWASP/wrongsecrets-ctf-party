@@ -348,10 +348,12 @@ const getSealedSecretsPublicKey = async () => {
   try {
     const list = await k8sCoreApi.listNamespacedSecret({
       namespace: 'kube-system',
-      labelSelector: { "sealedsecrets.bitnami.com/sealed-secrets-key": "active" },
+      labelSelector: { 'sealedsecrets.bitnami.com/sealed-secrets-key': 'active' },
+      limit: 1,
     });
+    logger.info(`Anything? ${list}`);
     logger.info(`Secret list: ${list.items}`);
-    secretName = list.items[0].metadata.name;
+    const secretName = list.items.map((secret) => secret.metadata.name).find((name) => name);
     const response = await k8sCoreApi.readNamespacedSecret({
       name: secretName,
       namespace: 'kube-system',
@@ -778,9 +780,9 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
       );
       throw new Error(
         error.message ||
-        error.body?.message ||
-        'Failed to create deployment for body: ' +
-        JSON.stringify(deploymentWrongSecretsConfig, null, 2)
+          error.body?.message ||
+          'Failed to create deployment for body: ' +
+            JSON.stringify(deploymentWrongSecretsConfig, null, 2)
       );
     });
 };
