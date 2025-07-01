@@ -6,6 +6,7 @@ const {
   getNamespaces,
   deleteNamespaceForTeam,
 } = require('./kubernetes');
+const { logger } = require('./logger');
 
 const MaxInactiveDuration = process.env['MAX_INACTIVE_DURATION'];
 const ShouldDelete = process.env['SHOULD_DELETE'];
@@ -55,6 +56,8 @@ async function listOldNamespaces() {
   var namespacesNames = [];
   // Get all namespaces
   const namespaces = await getNamespaces();
+  logger.info(`Found ${namespaces.body.items.length} namespaces.`);
+  // Check if there are no namespaces
   console.log(`Found ${namespaces.body.items.length} namespaces. Checking their activity.`);
   // Loop over all namespaces
   for (const namespace of namespaces.body.items) {

@@ -7,14 +7,13 @@ const {
   RbacAuthorizationV1Api,
   NetworkingV1Api,
 } = require('@kubernetes/client-node');
+
 const kc = new KubeConfig();
 kc.loadFromCluster();
 
 // This will be needed only in case of k8s_env=gcp
 const { auth: authGCPClient } = require('google-auth-library');
-
 const { google } = require('googleapis');
-
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 
 // Instantiates a client
@@ -55,6 +54,8 @@ const k8sCoreApi = kc.makeApiClient(CoreV1Api);
 const k8sCustomAPI = kc.makeApiClient(CustomObjectsApi);
 const k8sRBACAPI = kc.makeApiClient(RbacAuthorizationV1Api);
 const k8sNetworkingApi = kc.makeApiClient(NetworkingV1Api);
+
+// Environment variables
 const awsAccountEnv = process.env.IRSA_ROLE;
 const awsSecretsmanagerSecretName1 = process.env.AWS_SECRETS_MANAGER_SECRET_ID_1;
 const awsSecretsmanagerSecretName2 = process.env.AWS_SECRETS_MANAGER_SECRET_ID_2;
@@ -75,25 +76,117 @@ const heroku_wrongsecret_ctf_url = process.env.REACT_APP_HEROKU_WRONGSECRETS_URL
 const { get } = require('./config');
 const { logger } = require('./logger');
 
-const createNameSpaceForTeam = async (team) => {
-  const namedNameSpace = {
-    apiVersion: 'v1',
-    kind: 'Namespace',
-    metadata: {
-      name: `t-${team}`,
-    },
-    labels: {
-      name: `t-${team}`,
-      'pod-security.kubernetes.io/audit': 'restricted',
-      'pod-security.kubernetes.io/enforce': 'baseline',
-    },
-  };
-  k8sCoreApi.createNamespace(namedNameSpace).catch((error) => {
-    throw new Error(JSON.stringify(error));
-  });
-};
-module.exports.createNameSpaceForTeam = createNameSpaceForTeam;
+// Add input validation helper function
+// Enhanced validateTeamName function with better error handling
+const validateTeamName = (team) => {
+  if (!team || typeof team !== 'string') {
+    logger.error(`Invalid team name provided: ${team} (type: ${typeof team})`);
+    throw new Error(`Invalid team name provided: ${team}`);
+  }
 
+  const trimmed = team.trim();
+  if (trimmed === '') {
+    logger.error(`Empty team name provided after trimming: "${team}"`);
+    throw new Error('Team name cannot be empty');
+  }
+
+  logger.info(`Validated team name: "${trimmed}"`);
+  return trimmed;
+};
+
+// Move safeApiCall to the top
+const safeApiCall = async (apiCall, operation) => {
+  try {
+    logger.info(`Executing API call for operation: ${operation}`);
+    if (typeof apiCall !== 'function') {
+      logger.error(`Invalid API call function provided for operation: ${operation}`);
+      throw new Error(`Invalid API call function provided for operation: ${operation}`);
+    }
+    const response = await apiCall();
+    logger.info(`API call ${operation} completed successfully`);
+    return response;
+  } catch (error) {
+    logger.error(`${operation} failed:`, {
+      message: error.message,
+      statusCode: error.statusCode,
+      body: error.body,
+    });
+    logger.error(`Error details for operation ${operation}: ${JSON.stringify(error, null, 2)}`);
+    // Return null for 404 errors (resource not found)
+    if (error.statusCode === 404) {
+      logger.warn(`${operation} returned 404: Resource not found`);
+      return null;
+    }
+
+    throw error;
+  }
+};
+
+// Check if Sealed Secrets controller is installed and ready
+const checkSealedSecretsController = async () => {
+  try {
+    logger.info('Checking Sealed Secrets controller deployment status...');
+    const response = await safeApiCall(
+      () =>
+        k8sAppsApi.readNamespacedDeployment({
+          name: 'ws-sealedsecrets-sealed-secrets',
+          namespace: 'kube-system',
+        }),
+      'Check Sealed Secrets controller'
+    );
+    const deployment = response;
+    const isReady = deployment.status && deployment.status.readyReplicas > 0;
+
+    logger.info(`Sealed Secrets controller status: ${isReady ? 'Ready' : 'Not Ready'}`);
+    return isReady;
+  } catch (error) {
+    logger.warn('Sealed Secrets controller check failed:', error.message);
+    return false;
+  }
+};
+
+// Fix the getJuiceShopInstanceForTeamname function - correct parameter order
+const getJuiceShopInstanceForTeamname = async (teamname) => {
+  logger.info(`checking readiness for ${teamname}`);
+  try {
+    const validatedTeamName = validateTeamName(teamname);
+    const deploymentName = `t-${validatedTeamName}-wrongsecrets`;
+    const namespace = `t-${validatedTeamName}`;
+
+    logger.info(`Checking deployment for ${deploymentName} in namespace ${namespace}`);
+    // FIX: Correct parameter order - name first, then namespace
+    const res = await safeApiCall(
+      () => k8sAppsApi.readNamespacedDeployment({ name: deploymentName, namespace: namespace }),
+      `Check deployment for team ${teamname}`
+    );
+    if (!res) {
+      logger.info(`No deployment found for team ${teamname}`);
+      return undefined;
+    }
+
+    const deployment = res;
+
+    if (
+      Object.prototype.hasOwnProperty.call(deployment, 'metadata') &&
+      Object.prototype.hasOwnProperty.call(deployment.metadata, 'annotations')
+    ) {
+      return {
+        readyReplicas: deployment.status?.readyReplicas || 0,
+        availableReplicas: deployment.status?.availableReplicas || 0,
+        passcodeHash: deployment.metadata.annotations['wrongsecrets-ctf-party/passcode'],
+      };
+    }
+    return undefined;
+  } catch (error) {
+    logger.error(`Error checking deployment for team ${teamname}:`, error.message);
+    if (error.message && error.message.includes('not found')) {
+      return undefined;
+    }
+    throw error;
+  }
+};
+
+// Create basic functions
 const createConfigmapForTeam = async (team) => {
   const configmap = {
     apiVersion: 'v1',
@@ -107,11 +200,12 @@ const createConfigmapForTeam = async (team) => {
       namespace: `t-${team}`,
     },
   };
-  return k8sCoreApi.createNamespacedConfigMap('t-' + team, configmap).catch((error) => {
-    throw new Error(error.response.body.message);
-  });
+  return k8sCoreApi
+    .createNamespacedConfigMap({ namespace: 't-' + team, body: configmap })
+    .catch((error) => {
+      throw new Error(error.response.message);
+    });
 };
-module.exports.createConfigmapForTeam = createConfigmapForTeam;
 
 const createSecretsfileForTeam = async (team) => {
   const secret = {
@@ -126,11 +220,12 @@ const createSecretsfileForTeam = async (team) => {
       namespace: `t-${team}`,
     },
   };
-  return k8sCoreApi.createNamespacedSecret('t-' + team, secret).catch((error) => {
-    throw new Error(error.response.body.message);
-  });
+  return k8sCoreApi
+    .createNamespacedSecret({ namespace: 't-' + team, body: secret })
+    .catch((error) => {
+      throw new Error(error.response.message);
+    });
 };
-module.exports.createSecretsfileForTeam = createSecretsfileForTeam;
 
 const createChallenge33SecretForTeam = async (team) => {
   const secret = {
@@ -149,13 +244,327 @@ const createChallenge33SecretForTeam = async (team) => {
       },
     },
   };
-  return k8sCoreApi.createNamespacedSecret('t-' + team, secret).catch((error) => {
-    throw new Error(error.response.body.message);
-  });
+  return k8sCoreApi
+    .createNamespacedSecret({ namespace: 't-' + team, body: secret })
+    .catch((error) => {
+      throw new Error(error.response.message);
+    });
 };
-module.exports.createChallenge33SecretForTeam = createChallenge33SecretForTeam;
 
+/**
+ * Create a SealedSecret in the team's namespace for secure secret management
+ * @param {string} team - The team name
+ * @param {string} secretName - The name for the SealedSecret
+ * @param {Object} secretData - Object containing key-value pairs for the secret
+ */
+const createSealedSecretForTeam = async (team, secretName, secretData) => {
+  try {
+    // Note: In production, you would seal the data using kubeseal CLI or the controller's public key
+    // For this example, we're creating a template that would need to be sealed externally
+    const sealedSecretManifest = {
+      apiVersion: 'bitnami.com/v1alpha1',
+      kind: 'SealedSecret',
+      metadata: {
+        name: secretName,
+        namespace: `t-${team}`,
+        labels: {
+          'app.kubernetes.io/name': 'wrongsecrets',
+          'app.kubernetes.io/instance': `wrongsecrets-${team}`,
+          'app.kubernetes.io/part-of': 'wrongsecrets-ctf-party',
+        },
+      },
+      spec: {
+        template: {
+          metadata: {
+            name: secretName,
+            namespace: `t-${team}`,
+            labels: {
+              'app.kubernetes.io/name': 'wrongsecrets',
+              'app.kubernetes.io/instance': `wrongsecrets-${team}`,
+            },
+          },
+          type: 'Opaque',
+        },
+        encryptedData: secretData, // This should be pre-sealed data
+      },
+    };
+
+    const response = await k8sCustomAPI.createNamespacedCustomObject({
+      group: 'bitnami.com',
+      version: 'v1alpha1',
+      namespace: `t-${team}`,
+      plural: 'sealedsecrets',
+      body: sealedSecretManifest,
+    });
+
+    logger.info(`Created SealedSecret ${secretName} for team ${team}`);
+    return response;
+  } catch (error) {
+    logger.error(`Failed to create SealedSecret for team ${team}:`, error.body || error);
+    throw new Error(`Failed to create SealedSecret: ${error.message}`);
+  }
+};
+
+/**
+ * Create a sealed secret for challenge 33 specific to the team
+ * TODO: REPLACE WITH CHALLENGE 53 FOR ACTUAL SEALED SECRET
+ * @param {string} team - The team name
+ */
+const createSealedChallenge33SecretForTeam = async (team) => {
+  const secretName = 'challenge33';
+  const secretData = {
+    // Note: These values should be sealed using kubeseal before deployment
+    answer: challenge33Value || 'default-challenge33-value',
+  };
+
+  return createSealedSecretForTeam(team, secretName, secretData);
+};
+
+/**
+ * Get the Sealed Secrets controller public key for sealing secrets
+ */
+const getSealedSecretsPublicKey = async () => {
+  try {
+    const response = await k8sCoreApi.readNamespacedSecret({
+      name: 'sealed-secrets-key',
+      namespace: 'kube-system',
+    });
+    return response.data['tls.crt'];
+  } catch (error) {
+    logger.error('Failed to get Sealed Secrets public key:', error.body || error);
+    throw new Error(`Failed to get public key: ${error.message}`);
+  }
+};
+
+/**
+ * Enhanced namespace creation with SealedSecret support
+ */
+const createNameSpaceForTeam = async (team) => {
+  const namedNameSpace = {
+    apiVersion: 'v1',
+    kind: 'Namespace',
+    metadata: {
+      name: `t-${team}`,
+      labels: {
+        name: `t-${team}`,
+        'pod-security.kubernetes.io/audit': 'restricted',
+        'pod-security.kubernetes.io/enforce': 'baseline',
+      },
+    },
+  };
+
+  await k8sCoreApi.createNamespace({ name: 't-' + team, body: namedNameSpace }).catch((error) => {
+    throw new Error(JSON.stringify(error));
+  });
+
+  // Check if Sealed Secrets controller is available
+  const sealedSecretsReady = await checkSealedSecretsController();
+
+  if (sealedSecretsReady) {
+    logger.info(`Sealed Secrets controller is ready, will create sealed secrets for team ${team}`);
+  } else {
+    logger.warn(
+      `Sealed Secrets controller not ready, falling back to regular secrets for team ${team}`
+    );
+  }
+};
+
+// Fill in the createK8sChallenge53DeploymentForTeam function
+const createK8sChallenge53DeploymentForTeam = async ({ team, passcodeHash }) => {
+  logger.info(`Creating Challenge 53 deployment for team ${team}`);
+
+  const deploymentChallenge53Config = {
+    apiVersion: 'apps/v1',
+    kind: 'Deployment',
+    metadata: {
+      name: `t-${team}-secret-challenge-53`,
+      namespace: `t-${team}`,
+      labels: {
+        app: 'secret-challenge-53',
+        team: `${team}`,
+        'deployment-context': get('deploymentContext'),
+      },
+      annotations: {
+        'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
+        'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+        'wrongsecrets-ctf-party/passcode': passcodeHash,
+        'wrongsecrets-ctf-party/challengesSolved': '0',
+        'wrongsecrets-ctf-party/challenges': '[]',
+      },
+    },
+    spec: {
+      progressDeadlineSeconds: 20,
+      replicas: 1,
+      revisionHistoryLimit: 10,
+      selector: {
+        matchLabels: {
+          app: 'secret-challenge-53',
+          team: `${team}`,
+          'deployment-context': get('deploymentContext'),
+        },
+      },
+      template: {
+        metadata: {
+          labels: {
+            app: 'secret-challenge-53',
+            team: `${team}`,
+            'deployment-context': get('deploymentContext'),
+          },
+          name: 'secret-challenge-53',
+        },
+        spec: {
+          securityContext: {
+            runAsUser: 2000,
+            runAsGroup: 2000,
+            fsGroup: 2000,
+          },
+          containers: [
+            {
+              image: `jeroenwillemsen/wrongsecrets-challenge53:${wrongSecretsDekstopTag}`,
+              name: 'secret-challenge-53',
+              imagePullPolicy: 'IfNotPresent',
+              resources: {
+                requests: {
+                  memory: '32Mi',
+                  cpu: '50m',
+                  'ephemeral-storage': '100Mi',
+                },
+                limits: {
+                  memory: '64Mi',
+                  cpu: '100m',
+                  'ephemeral-storage': '200Mi',
+                },
+              },
+              securityContext: {
+                capabilities: {
+                  drop: ['ALL'],
+                },
+                allowPrivilegeEscalation: false,
+                readOnlyRootFilesystem: true,
+                runAsNonRoot: true,
+                privileged: false,
+                seccompProfile: {
+                  type: 'RuntimeDefault',
+                },
+              },
+              env: [
+                {
+                  name: 'TEAM_NAME',
+                  value: team,
+                },
+                {
+                  name: 'DEPLOYMENT_CONTEXT',
+                  value: get('deploymentContext'),
+                },
+              ],
+              volumeMounts: [
+                {
+                  mountPath: '/tmp',
+                  name: 'ephemeral',
+                },
+              ],
+            },
+          ],
+          volumes: [
+            {
+              name: 'ephemeral',
+              emptyDir: {},
+            },
+          ],
+          tolerations: get('wrongsecrets.tolerations'),
+          affinity: get('wrongsecrets.affinity'),
+          runtimeClassName: get('wrongsecrets.runtimeClassName')
+            ? get('wrongsecrets.runtimeClassName')
+            : undefined,
+        },
+      },
+    },
+  };
+
+  try {
+    logger.info(`Deploying Challenge 53 to namespace t-${team}`);
+    const response = await k8sAppsApi.createNamespacedDeployment({
+      namespace: `t-${team}`,
+      body: deploymentChallenge53Config,
+    });
+
+    logger.info(`Successfully created Challenge 53 deployment for team ${team}`);
+    return response;
+  } catch (error) {
+    logger.error(`Failed to create Challenge 53 deployment for team ${team}:`, error.message);
+    throw new Error(`Failed to create Challenge 53 deployment: ${error.message}`);
+  }
+};
+
+// Add helper function to check Challenge 53 deployment status
+const getChallenge53InstanceForTeam = async (team) => {
+  logger.info(`Checking Challenge 53 deployment status for team ${team}`);
+
+  try {
+    const validatedTeamName = validateTeamName(team);
+    const deploymentName = `t-${validatedTeamName}-secret-challenge-53`;
+    const namespace = `t-${validatedTeamName}`;
+
+    logger.info(`Checking Challenge 53 deployment ${deploymentName} in namespace ${namespace}`);
+
+    const res = await safeApiCall(
+      () => k8sAppsApi.readNamespacedDeployment({ name: deploymentName, namespace: namespace }),
+      `Check Challenge 53 deployment for team ${team}`
+    );
+
+    if (!res || !res.body) {
+      logger.info(`No Challenge 53 deployment found for team ${team}`);
+      return undefined;
+    }
+
+    const deployment = res.body;
+
+    return {
+      readyReplicas: deployment.status?.readyReplicas || 0,
+      availableReplicas: deployment.status?.availableReplicas || 0,
+      replicas: deployment.status?.replicas || 0,
+      conditions: deployment.status?.conditions || [],
+    };
+  } catch (error) {
+    logger.error(`Error checking Challenge 53 deployment for team ${team}:`, error.message);
+    if (error.message && error.message.includes('not found')) {
+      return undefined;
+    }
+    throw error;
+  }
+};
+
+// Add function to delete Challenge 53 deployment
+const deleteChallenge53DeploymentForTeam = async (team) => {
+  logger.info(`Deleting Challenge 53 deployment for team ${team}`);
+
+  try {
+    const validatedTeamName = validateTeamName(team);
+    const deploymentName = `t-${validatedTeamName}-secret-challenge-53`;
+    await k8sAppsApi.deleteNamespacedDeployment({ name: deploymentName, namespace: `t-${team}` });
+    logger.info(`Successfully deleted Challenge 53 deployment for team ${team}`);
+  } catch (error) {
+    if (error.statusCode === 404) {
+      logger.warn(`Challenge 53 deployment not found for team ${team}, nothing to delete`);
+      return;
+    }
+    logger.error(`Failed to delete Challenge 53 deployment for team ${team}:`, error.message);
+    throw new Error(`Failed to delete Challenge 53 deployment: ${error.message}`);
+  }
+};
+
+/**
+ * Enhanced deployment creation with SealedSecret integration
+ */
 const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
+  // Check if we should use SealedSecrets
+  const useSealedSecrets = await checkSealedSecretsController();
+
+  if (useSealedSecrets) {
+    // Create sealed secrets for the team
+    await createSealedChallenge33SecretForTeam(team);
+  }
+
   const deploymentWrongSecretsConfig = {
     metadata: {
       namespace: `t-${team}`,
@@ -277,7 +686,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                   path: '/actuator/health/readiness',
                   port: 8080,
                 },
-                initialDelaySeconds: 70,
+                initialDelaySeconds: 90,
                 timeoutSeconds: 30,
                 periodSeconds: 10,
                 failureThreshold: 10,
@@ -287,7 +696,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                   path: '/actuator/health/liveness',
                   port: 8080,
                 },
-                initialDelaySeconds: 50,
+                initialDelaySeconds: 70,
                 timeoutSeconds: 30,
                 periodSeconds: 30,
               },
@@ -303,18 +712,11 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                   'ephemeral-storage': '2Gi',
                 },
               },
-
               volumeMounts: [
-                // {
-                //   name: 'wrongsecrets-config',
-                //   mountPath: '/wrongsecrets/config/wrongsecrets-ctf-party.yaml',
-                //   subPath: 'wrongsecrets-ctf-party.yaml',
-                // },
                 {
                   mountPath: '/tmp',
                   name: 'ephemeral',
                 },
-                // ...get('wrongsecrets.volumeMounts', []),
               ],
             },
           ],
@@ -341,13 +743,20 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
     },
   };
   return k8sAppsApi
-    .createNamespacedDeployment('t-' + team, deploymentWrongSecretsConfig)
+    .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
-      throw new Error(error.response.body.message);
+      logger.error(
+        `Failed to create deployment for team ${team}:`,
+        error.body || error.message || error
+      );
+      throw new Error(
+        error.message ||
+          error.body?.message ||
+          'Failed to create deployment for body: ' +
+            JSON.stringify(deploymentWrongSecretsConfig, null, 2)
+      );
     });
 };
-
-module.exports.createK8sDeploymentForTeam = createK8sDeploymentForTeam;
 
 //BEGIN AWS
 const createAWSSecretsProviderForTeam = async (team) => {
@@ -366,18 +775,17 @@ const createAWSSecretsProviderForTeam = async (team) => {
     },
   };
   return k8sCustomAPI
-    .createNamespacedCustomObject(
-      'secrets-store.csi.x-k8s.io',
-      'v1',
-      `t-${team}`,
-      'secretproviderclasses',
-      secretProviderClass
-    )
+    .createNamespacedCustomObject({
+      group: 'secrets-store.csi.x-k8s.io',
+      version: 'v1',
+      namespace: `t-${team}`,
+      plural: 'secretproviderclasses',
+      body: secretProviderClass,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
 };
-module.exports.createAWSSecretsProviderForTeam = createAWSSecretsProviderForTeam;
 
 const patchServiceAccountForTeamForAWS = async (team) => {
   const patch = {
@@ -387,25 +795,22 @@ const patchServiceAccountForTeamForAWS = async (team) => {
       },
     },
   };
-  const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
-
   return k8sCoreApi
-    .patchNamespacedServiceAccount(
-      'default',
-      `t-${team}`,
-      patch,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      options
-    )
+    .patchNamespacedServiceAccount({
+      name: 'default',
+      namespace: `t-${team}`,
+      body: patch,
+      pretty: undefined,
+      dryRun: undefined,
+      fieldManager: undefined,
+      fieldValidation: undefined,
+      force: undefined,
+      headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH },
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
 };
-module.exports.patchServiceAccountForTeamForAWS = patchServiceAccountForTeamForAWS;
 
 const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
   const deploymentWrongSecretsConfig = {
@@ -448,22 +853,6 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
             runAsGroup: 2000,
             fsGroup: 2000,
           },
-          volumes: [
-            {
-              name: 'secrets-store-inline',
-              csi: {
-                driver: 'secrets-store.csi.k8s.io',
-                readOnly: true,
-                volumeAttributes: {
-                  secretProviderClass: 'wrongsecrets-aws-secretsmanager',
-                },
-              },
-            },
-            {
-              name: 'ephemeral',
-              emptyDir: {},
-            },
-          ],
           containers: [
             {
               name: 'wrongsecrets',
@@ -603,6 +992,22 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
               ],
             },
           ],
+          volumes: [
+            {
+              name: 'secrets-store-inline',
+              csi: {
+                driver: 'secrets-store.csi.k8s.io',
+                readOnly: true,
+                volumeAttributes: {
+                  secretProviderClass: 'wrongsecrets-aws-secretsmanager',
+                },
+              },
+            },
+            {
+              name: 'ephemeral',
+              emptyDir: {},
+            },
+          ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
           runtimeClassName: get('wrongsecrets.runtimeClassName')
@@ -613,13 +1018,11 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
     },
   };
   return k8sAppsApi
-    .createNamespacedDeployment('t-' + team, deploymentWrongSecretsConfig)
+    .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
 };
-
-module.exports.createAWSDeploymentForTeam = createAWSDeploymentForTeam;
 
 //END AWS
 
@@ -655,18 +1058,17 @@ const createAzureSecretsProviderForTeam = async (team) => {
   };
 
   return k8sCustomAPI
-    .createNamespacedCustomObject(
-      'secrets-store.csi.x-k8s.io',
-      'v1',
-      `t-${team}`,
-      'secretproviderclasses',
-      secretProviderClass
-    )
+    .createNamespacedCustomObject({
+      group: 'secrets-store.csi.x-k8s.io',
+      version: 'v1',
+      namespace: `t-${team}`,
+      plural: 'secretproviderclasses',
+      body: secretProviderClass,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
 };
-module.exports.createAzureSecretsProviderForTeam = createAzureSecretsProviderForTeam;
 
 const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
   const deploymentWrongSecretsConfig = {
@@ -712,28 +1114,11 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
             runAsGroup: 2000,
             fsGroup: 2000,
           },
-          volumes: [
-            {
-              name: 'secrets-store-inline',
-              csi: {
-                driver: 'secrets-store.csi.k8s.io',
-                readOnly: true,
-                volumeAttributes: {
-                  secretProviderClass: 'azure-wrongsecrets-vault',
-                },
-              },
-            },
-            {
-              name: 'ephemeral',
-              emptyDir: {},
-            },
-          ],
           containers: [
             {
               name: 'wrongsecrets',
               image: `jeroenwillemsen/wrongsecrets:${wrongSecretsContainterTag}`,
               imagePullPolicy: get('wrongsecrets.imagePullPolicy'),
-              // resources: get('wrongsecrets.resources'),
               securityContext: {
                 allowPrivilegeEscalation: false,
                 readOnlyRootFilesystem: true,
@@ -837,7 +1222,6 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
                     },
                   },
                 },
-                // ...get('wrongsecrets.env', []),
               ],
               envFrom: get('wrongsecrets.envFrom'),
               ports: [
@@ -895,197 +1279,6 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
               ],
             },
           ],
-          tolerations: get('wrongsecrets.tolerations'),
-          affinity: get('wrongsecrets.affinity'),
-          runtimeClassName: get('wrongsecrets.runtimeClassName')
-            ? get('wrongsecrets.runtimeClassName')
-            : undefined,
-        },
-      },
-    },
-  };
-  return k8sAppsApi
-    .createNamespacedDeployment('t-' + team, deploymentWrongSecretsConfig)
-    .catch((error) => {
-      throw new Error(error.response.body.message);
-    });
-};
-
-module.exports.createAzureDeploymentForTeam = createAzureDeploymentForTeam;
-
-//END AZURE
-
-//BEGIN GCP
-const createGCPSecretsProviderForTeam = async (team) => {
-  // Define the YAML-formatted secrets field as a string
-  const secretsYaml = `
-    - resourceName: "projects/${gcpProject}/secrets/wrongsecret-1/versions/latest"
-      fileName: "${gcpSecretsmanagerSecretName1}"
-    - resourceName: "projects/${gcpProject}/secrets/wrongsecret-2/versions/latest"
-      fileName: "${gcpSecretsmanagerSecretName2}"
-    `;
-  const secretProviderClass = {
-    apiVersion: 'secrets-store.csi.x-k8s.io/v1',
-    kind: 'SecretProviderClass',
-    metadata: {
-      name: 'wrongsecrets-gcp-secretsmanager',
-      namespace: `t-${team}`,
-    },
-    spec: {
-      provider: 'gcp',
-      parameters: {
-        secrets: secretsYaml,
-      },
-    },
-  };
-  return k8sCustomAPI
-    .createNamespacedCustomObject(
-      'secrets-store.csi.x-k8s.io',
-      'v1',
-      `t-${team}`,
-      'secretproviderclasses',
-      secretProviderClass
-    )
-    .catch((error) => {
-      throw new Error(JSON.stringify(error));
-    });
-};
-module.exports.createGCPSecretsProviderForTeam = createGCPSecretsProviderForTeam;
-
-const createIAMServiceAccountForTeam = async (team) => {
-  try {
-    const authClient = await authenticateGCP();
-    const serviceAccountName = `team-${team}`; // Replace with the desired service account name
-    const projectId = `${gcpProject}`; // Replace with your GCP project ID
-    const iam = google.iam('v1');
-
-    // Create the service account
-    const createServiceAccountResponse = await iam.projects.serviceAccounts.create({
-      name: `projects/${projectId}`,
-      requestBody: {
-        accountId: serviceAccountName,
-        serviceAccount: {
-          displayName: 'Service Account Display Name',
-        },
-      },
-      auth: authClient,
-    });
-
-    console.log(`Service account created: ${createServiceAccountResponse.data.name}`);
-
-    // Grant the Secret Manager Secret Accessor role to the service account
-    const member = `serviceAccount:${createServiceAccountResponse.data.email}`;
-
-    await secretmanagerGCPAccess(`projects/${gcpProject}/secrets/wrongsecret-1`, member);
-
-    await secretmanagerGCPAccess(`projects/${gcpProject}/secrets/wrongsecret-2`, member);
-
-    await secretmanagerGCPAccess(`projects/${gcpProject}/secrets/wrongsecret-3`, member);
-
-    console.log('Secret Manager Secret Accessor role granted.');
-  } catch (error) {
-    console.error('Error creating service account:', error);
-  }
-};
-module.exports.createIAMServiceAccountForTeam = createIAMServiceAccountForTeam;
-
-const bindIAMServiceAccountToWorkloadForTeam = async (team) => {
-  const authClient = await authenticateGCP();
-  const projectId = `${gcpProject}`; // Replace with your GCP project ID
-  const serviceAccountEmail = `team-${team}@${gcpProject}.iam.gserviceaccount.com`; // Replace with your service account's email
-  const resource = `projects/${projectId}/serviceAccounts/${serviceAccountEmail}`;
-
-  // Define the role binding you want to add
-  const roleBinding = {
-    role: 'roles/iam.workloadIdentityUser', // The role you want to grant
-    members: [`serviceAccount:owasp-wrongsecrets.svc.id.goog[t-${team}/default]`], // The user or group you want to grant the role to
-  };
-
-  // Add the role binding
-  const res = await authClient.request({
-    url: `https://iam.googleapis.com/v1/${resource}:setIamPolicy`,
-    method: 'POST',
-    data: {
-      policy: {
-        bindings: [roleBinding],
-      },
-    },
-  });
-
-  console.log(`Role binding added: ${JSON.stringify(res.data, null, 2)}`);
-};
-module.exports.bindIAMServiceAccountToWorkloadForTeam = bindIAMServiceAccountToWorkloadForTeam;
-
-const patchServiceAccountForTeamForGCP = async (team) => {
-  const patch = {
-    metadata: {
-      annotations: {
-        'iam.gke.io/gcp-service-account': `team-${team}@${gcpProject}.iam.gserviceaccount.com`,
-      },
-    },
-  };
-  const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
-
-  return k8sCoreApi
-    .patchNamespacedServiceAccount(
-      'default',
-      `t-${team}`,
-      patch,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      options
-    )
-    .catch((error) => {
-      throw new Error(JSON.stringify(error));
-    });
-};
-module.exports.patchServiceAccountForTeamForGCP = patchServiceAccountForTeamForGCP;
-
-const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
-  const deploymentWrongSecretsConfig = {
-    metadata: {
-      namespace: `t-${team}`,
-      name: `t-${team}-wrongsecrets`,
-      labels: {
-        app: 'wrongsecrets',
-        team: `${team}`,
-        'deployment-context': get('deploymentContext'),
-      },
-      annotations: {
-        'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
-        'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
-        'wrongsecrets-ctf-party/passcode': passcodeHash,
-        'wrongsecrets-ctf-party/challengesSolved': '0',
-        'wrongsecrets-ctf-party/challenges': '[]',
-      },
-    },
-    spec: {
-      selector: {
-        matchLabels: {
-          app: 'wrongsecrets',
-          team: `${team}`,
-          'deployment-context': get('deploymentContext'),
-        },
-      },
-      template: {
-        metadata: {
-          labels: {
-            app: 'wrongsecrets',
-            team: `${team}`,
-            'deployment-context': get('deploymentContext'),
-          },
-        },
-        spec: {
-          automountServiceAccountToken: false,
-          serviceAccountName: 'default',
-          securityContext: {
-            runAsUser: 2000,
-            runAsGroup: 2000,
-            fsGroup: 2000,
-          },
           volumes: [
             {
               name: 'secrets-store-inline',
@@ -1093,7 +1286,7 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
                 driver: 'secrets-store.csi.k8s.io',
                 readOnly: true,
                 volumeAttributes: {
-                  secretProviderClass: 'wrongsecrets-gcp-secretsmanager',
+                  secretProviderClass: 'azure-wrongsecrets-vault',
                 },
               },
             },
@@ -1102,153 +1295,6 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
               emptyDir: {},
             },
           ],
-          containers: [
-            {
-              name: 'wrongsecrets',
-              image: `jeroenwillemsen/wrongsecrets:${wrongSecretsContainterTag}`,
-              imagePullPolicy: get('wrongsecrets.imagePullPolicy'),
-              // resources: get('wrongsecrets.resources'),
-              securityContext: {
-                allowPrivilegeEscalation: false,
-                readOnlyRootFilesystem: true,
-                runAsNonRoot: true,
-                capabilities: { drop: ['ALL'] },
-                seccompProfile: { type: 'RuntimeDefault' },
-              },
-              env: [
-                {
-                  name: 'hints_enabled',
-                  value: 'false',
-                },
-                {
-                  name: 'ctf_enabled',
-                  value: 'true',
-                },
-                {
-                  name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
-                },
-                {
-                  name: 'K8S_ENV',
-                  value: 'gcp',
-                },
-                {
-                  name: 'APP_VERSION',
-                  value: `${wrongSecretsContainterTag}-ctf`,
-                },
-                {
-                  name: 'CTF_SERVER_ADDRESS',
-                  value: `${heroku_wrongsecret_ctf_url}`,
-                },
-                {
-                  name: 'FILENAME_CHALLENGE9',
-                  value: `${gcpSecretsmanagerSecretName1}`,
-                },
-                {
-                  name: 'FILENAME_CHALLENGE10',
-                  value: `${gcpSecretsmanagerSecretName2}`,
-                },
-                {
-                  name: 'challenge_acht_ctf_to_provide_to_host_value',
-                  value: 'provideThisKeyToHostThankyouAlllGoodDoYouLikeRandomLogging?',
-                },
-                {
-                  name: 'challenge_thirty_ctf_to_provide_to_host_value',
-                  value: 'provideThisKeyToHostWhenYouRealizeLSIsOK?',
-                },
-                {
-                  name: 'SPECIAL_K8S_SECRET',
-                  valueFrom: {
-                    configMapKeyRef: {
-                      name: 'secrets-file',
-                      key: 'funny.entry',
-                    },
-                  },
-                },
-                {
-                  name: 'SPECIAL_SPECIAL_K8S_SECRET',
-                  valueFrom: {
-                    secretKeyRef: {
-                      name: 'funnystuff',
-                      key: 'funnier',
-                    },
-                  },
-                },
-                {
-                  name: 'SPRING_CLOUD_VAULT_URI',
-                  value: 'http://vault.vault.svc.cluster.local:8200',
-                },
-                {
-                  name: 'JWT_PATH',
-                  value: '/var/run/secrets/kubernetes.io/serviceaccount/token',
-                },
-                {
-                  name: 'CHALLENGE33',
-                  valueFrom: {
-                    secretKeyRef: {
-                      name: 'challenge33',
-                      key: 'answer',
-                    },
-                  },
-                },
-                //...get('wrongsecrets.env', []),
-              ],
-              envFrom: get('wrongsecrets.envFrom'),
-              ports: [
-                {
-                  containerPort: 8080,
-                },
-              ],
-              readinessProbe: {
-                httpGet: {
-                  path: '/actuator/health/readiness',
-                  port: 8080,
-                },
-                initialDelaySeconds: 90,
-                timeoutSeconds: 30,
-                periodSeconds: 10,
-                failureThreshold: 10,
-              },
-              livenessProbe: {
-                httpGet: {
-                  path: '/actuator/health/liveness',
-                  port: 8080,
-                },
-                initialDelaySeconds: 70,
-                timeoutSeconds: 30,
-                periodSeconds: 30,
-              },
-              resources: {
-                requests: {
-                  memory: '512Mi',
-                  cpu: '200m',
-                  'ephemeral-storage': '1Gi',
-                },
-                limits: {
-                  memory: '512Mi',
-                  cpu: '500m',
-                  'ephemeral-storage': '2Gi',
-                },
-              },
-              volumeMounts: [
-                // {
-                //   name: 'wrongsecrets-config',
-                //   mountPath: '/wrongsecrets/config/wrongsecrets-ctf-party.yaml',
-                //   subPath: 'wrongsecrets-ctf-party.yaml',
-                // },
-                {
-                  mountPath: '/tmp',
-                  name: 'ephemeral',
-                },
-                {
-                  name: 'secrets-store-inline',
-                  mountPath: '/mnt/secrets-store',
-                  readOnly: true,
-                },
-                // ...get('wrongsecrets.volumeMounts', []),
-              ],
-            },
-          ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
           runtimeClassName: get('wrongsecrets.runtimeClassName')
@@ -1259,23 +1305,37 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
     },
   };
   return k8sAppsApi
-    .createNamespacedDeployment('t-' + team, deploymentWrongSecretsConfig)
+    .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
 };
-module.exports.createGCPDeploymentForTeam = createGCPDeploymentForTeam;
 
-//END GCP
+//END AZURE
 
+//BEGIN NETWORK POLICIES
 const getKubernetesEndpointToWhitelist = async () => {
-  const {
-    response: {
-      body: { subsets },
-    },
-  } = await k8sCoreApi.readNamespacedEndpoints('kubernetes', 'default');
-  logger.info(JSON.stringify(subsets));
-  return subsets.flatMap((subset) => subset.addresses.map((address) => address.ip));
+  try {
+    // FIX: Use correct parameter order and response structure
+    const response = await k8sCoreApi.readNamespacedEndpoints({
+      name: 'kubernetes',
+      namespace: 'default',
+    });
+    // FIX: Extract subsets from the correct response structure
+    const subsets = response.subsets;
+
+    logger.info(`Kubernetes endpoints subsets: ${JSON.stringify(subsets)}`);
+
+    if (!subsets || subsets.length === 0) {
+      logger.warn('No subsets found in kubernetes endpoints');
+      return [];
+    }
+
+    return subsets.flatMap((subset) => subset.addresses.map((address) => address.ip));
+  } catch (error) {
+    logger.error('Failed to get Kubernetes endpoints:', error.message);
+    throw new Error(`Failed to get Kubernetes endpoints: ${error.message}`);
+  }
 };
 
 const createNSPsforTeam = async (team) => {
@@ -1370,27 +1430,27 @@ const createNSPsforTeam = async (team) => {
           ],
         },
       ],
+      egress: [
+        {
+          to: [
+            {
+              namespaceSelector: {
+                matchLabels: {
+                  'kubernetes.io/metadata.name': 'default',
+                },
+              },
+            },
+            {
+              podSelector: {
+                matchLabels: {
+                  'app.kubernetes.io/name': 'wrongsecrets-ctf-party',
+                },
+              },
+            },
+          ],
+        },
+      ],
     },
-    egress: [
-      {
-        to: [
-          {
-            namespaceSelector: {
-              matchLabels: {
-                'kubernetes.io/metadata.name': 'default',
-              },
-            },
-          },
-          {
-            podSelector: {
-              matchLabels: {
-                'app.kubernetes.io/name': 'wrongsecrets-ctf-party',
-              },
-            },
-          },
-        ],
-      },
-    ],
   };
 
   const nsAllowWrongSecretstoVirtualDesktop = {
@@ -1419,20 +1479,20 @@ const createNSPsforTeam = async (team) => {
           ],
         },
       ],
-    },
-    egress: [
-      {
-        to: [
-          {
-            podSelector: {
-              matchLabels: {
-                app: 'virtualdesktop',
+      egress: [
+        {
+          to: [
+            {
+              podSelector: {
+                matchLabels: {
+                  app: 'virtualdesktop',
+                },
               },
             },
-          },
-        ],
-      },
-    ],
+          ],
+        },
+      ],
+    },
   };
 
   const nsAllowVirtualDesktoptoWrongSecrets = {
@@ -1461,20 +1521,20 @@ const createNSPsforTeam = async (team) => {
           ],
         },
       ],
-    },
-    egress: [
-      {
-        to: [
-          {
-            podSelector: {
-              matchLabels: {
-                app: 'wrongsecrets',
+      egress: [
+        {
+          to: [
+            {
+              podSelector: {
+                matchLabels: {
+                  app: 'wrongsecrets',
+                },
               },
             },
-          },
-        ],
-      },
-    ],
+          ],
+        },
+      ],
+    },
   };
 
   const nsAllowToDoKubeCTLFromWebTop = {
@@ -1658,54 +1718,63 @@ const createNSPsforTeam = async (team) => {
 
   logger.info(`applying nspAllowkubectl for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy(`t-${team}`, nspAllowkubectl)
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nspAllowkubectl })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nspDefaultDeny for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy(`t-${team}`, nspDefaultDeny)
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nspDefaultDeny })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowOnlyDNS for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy(`t-${team}`, nsAllowOnlyDNS)
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowOnlyDNS })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowBalancer for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy(`t-${team}`, nsAllowBalancer)
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowBalancer })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowWrongSecretstoVirtualDesktop for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy(`t-${team}`, nsAllowWrongSecretstoVirtualDesktop)
+    .createNamespacedNetworkPolicy({
+      namespace: `t-${team}`,
+      body: nsAllowWrongSecretstoVirtualDesktop,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying nsAllowVirtualDesktoptoWrongSecrets for ${team}`);
   await k8sNetworkingApi
-    .createNamespacedNetworkPolicy(`t-${team}`, nsAllowVirtualDesktoptoWrongSecrets)
+    .createNamespacedNetworkPolicy({
+      namespace: `t-${team}`,
+      body: nsAllowVirtualDesktoptoWrongSecrets,
+    })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
   logger.info(`applying broaderallow for ${team}`);
-  await k8sNetworkingApi.createNamespacedNetworkPolicy(`t-${team}`, broaderallow).catch((error) => {
-    throw new Error(JSON.stringify(error));
-  });
+  await k8sNetworkingApi
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: broaderallow })
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
   logger.info(`applying nsAllowToDoKubeCTLFromWebTop for ${team}`);
   return k8sNetworkingApi
-    .createNamespacedNetworkPolicy(`t-${team}`, nsAllowToDoKubeCTLFromWebTop)
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowToDoKubeCTLFromWebTop })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
 };
 
-module.exports.createNSPsforTeam = createNSPsforTeam;
+//END NETWORK POLICIES
 
+//BEGIN RBAC
 const createServiceAccountForWebTop = async (team) => {
   const webtopSA = {
     apiVersion: 'v1',
@@ -1715,12 +1784,12 @@ const createServiceAccountForWebTop = async (team) => {
       namespace: `t-${team}`,
     },
   };
-  return k8sCoreApi.createNamespacedServiceAccount(`t-${team}`, webtopSA).catch((error) => {
-    throw new Error(JSON.stringify(error));
-  });
+  return k8sCoreApi
+    .createNamespacedServiceAccount({ namespace: `t-${team}`, body: webtopSA })
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
 };
-
-module.exports.createServiceAccountForWebTop = createServiceAccountForWebTop;
 
 const createRoleForWebTop = async (team) => {
   const roleDefinitionForWebtop = {
@@ -1743,6 +1812,18 @@ const createRoleForWebTop = async (team) => {
       },
       {
         apiGroups: [''],
+        resources: ['pods/exec'],
+        verbs: ['create'],
+        resourceNames: [`t-${team}-secret-challenge-53*`],
+      },
+      {
+        apiGroups: [''],
+        resources: ['pods'],
+        verbs: ['patch', 'update'],
+        resourceNames: [`t-${team}-secret-challenge-53*`],
+      },
+      {
+        apiGroups: [''],
         resources: ['pod', 'pods', 'pods/log'],
         verbs: ['get', 'list', 'watch'],
       },
@@ -1753,12 +1834,12 @@ const createRoleForWebTop = async (team) => {
       },
     ],
   };
-  return k8sRBACAPI.createNamespacedRole(`t-${team}`, roleDefinitionForWebtop).catch((error) => {
-    throw new Error(JSON.stringify(error));
-  });
+  return k8sRBACAPI
+    .createNamespacedRole({ namespace: `t-${team}`, body: roleDefinitionForWebtop })
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
 };
-
-module.exports.createRoleForWebTop = createRoleForWebTop;
 
 const createRoleBindingForWebtop = async (team) => {
   const roleBindingforWebtop = {
@@ -1775,13 +1856,15 @@ const createRoleBindingForWebtop = async (team) => {
     },
   };
   return k8sRBACAPI
-    .createNamespacedRoleBinding(`t-${team}`, roleBindingforWebtop)
+    .createNamespacedRoleBinding({ namespace: `t-${team}`, body: roleBindingforWebtop })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
 };
-module.exports.createRoleBindingForWebtop = createRoleBindingForWebtop;
 
+//END RBAC
+
+//BEGIN DESKTOP AND SERVICES
 const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
   const deploymentWrongSecretsDesktopConfig = {
     metadata: {
@@ -1817,15 +1900,9 @@ const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
         },
         spec: {
           serviceAccountName: 'webtop-sa',
-          // securityContext: {
-          //   runAsUser: 1000,
-          //   runAsGroup: 1000,
-          //   fsGroup: 1000,
-          // },
           containers: [
             {
               name: 'virtualdesktop',
-              //TODO REPLACE HARDCODED BELOW WITH PROPPER GETS: image: `${get('wrongsecrets.image')}:${get('wrongsecrets.tag')}`,
               image: `jeroenwillemsen/wrongsecrets-desktop-k8s:${wrongSecretsDekstopTag}`,
               imagePullPolicy: get('virtualdesktop.imagePullPolicy'),
               resources: {
@@ -1841,7 +1918,7 @@ const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
               },
               securityContext: {
-                allowPrivilegeEscalation: true, //S6 will capture any weird things
+                allowPrivilegeEscalation: true,
                 readOnlyRootFilesystem: false,
                 runAsNonRoot: false,
               },
@@ -1907,189 +1984,120 @@ const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
   };
 
   return k8sAppsApi
-    .createNamespacedDeployment('t-' + team, deploymentWrongSecretsDesktopConfig)
+    .createNamespacedDeployment({
+      namespace: 't-' + team,
+      body: deploymentWrongSecretsDesktopConfig,
+    })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
 };
 
-module.exports.createDesktopDeploymentForTeam = createDesktopDeploymentForTeam;
-
-const createServiceForTeam = async (teamname) =>
-  k8sCoreApi
-    .createNamespacedService('t-' + teamname, {
-      metadata: {
-        namespace: `t-${teamname}`,
-        name: `t-${teamname}-wrongsecrets`,
-        labels: {
-          app: 'wrongsecrets',
-          team: teamname,
-          'deployment-context': get('deploymentContext'),
-        },
-      },
-      spec: {
-        selector: {
-          app: 'wrongsecrets',
-          team: teamname,
-          'deployment-context': get('deploymentContext'),
-        },
-        ports: [
-          {
-            port: 8080,
+const createServiceForTeam = async (teamname) => {
+  return k8sCoreApi
+    .createNamespacedService({
+      namespace: 't-' + teamname,
+      body: {
+        metadata: {
+          namespace: `t-${teamname}`,
+          name: `t-${teamname}-wrongsecrets`,
+          labels: {
+            app: 'wrongsecrets',
+            team: teamname,
+            'deployment-context': get('deploymentContext'),
           },
-        ],
+        },
+        spec: {
+          selector: {
+            app: 'wrongsecrets',
+            team: teamname,
+            'deployment-context': get('deploymentContext'),
+          },
+          ports: [
+            {
+              port: 8080,
+            },
+          ],
+        },
       },
     })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
-module.exports.createServiceForTeam = createServiceForTeam;
+};
 
-const createDesktopServiceForTeam = async (teamname) =>
-  k8sCoreApi
-    .createNamespacedService('t-' + teamname, {
-      metadata: {
-        name: `t-${teamname}-virtualdesktop`,
-        namespace: `t-${teamname}`,
-        labels: {
-          app: 'virtualdesktop',
-          team: teamname,
-          'deployment-context': get('deploymentContext'),
-        },
-      },
-      spec: {
-        selector: {
-          app: 'virtualdesktop',
-          team: teamname,
-          'deployment-context': get('deploymentContext'),
-        },
-        ports: [
-          {
-            port: 8080,
-            targetPort: 3000,
+const createDesktopServiceForTeam = async (teamname) => {
+  return k8sCoreApi
+    .createNamespacedService({
+      namespace: 't-' + teamname,
+      body: {
+        metadata: {
+          name: `t-${teamname}-virtualdesktop`,
+          namespace: `t-${teamname}`,
+          labels: {
+            app: 'virtualdesktop',
+            team: teamname,
+            'deployment-context': get('deploymentContext'),
           },
-        ],
+        },
+        spec: {
+          selector: {
+            app: 'virtualdesktop',
+            team: teamname,
+            'deployment-context': get('deploymentContext'),
+          },
+          ports: [
+            {
+              port: 8080,
+              targetPort: 3000,
+            },
+          ],
+        },
       },
     })
     .catch((error) => {
       throw new Error(error.response.body.message);
     });
-module.exports.createDesktopServiceForTeam = createDesktopServiceForTeam;
-
-const getJuiceShopInstances = () =>
-  k8sAppsApi
-    .listDeploymentForAllNamespaces(
-      true,
-      undefined,
-      undefined,
-      'app in (wrongsecrets, virtualdesktop)',
-      200
-    )
-    .catch((error) => {
-      logger.info(error);
-      throw new Error(error.response.body.message);
-    });
-module.exports.getJuiceShopInstances = getJuiceShopInstances;
-
-const deleteNamespaceForTeam = async (team) => {
-  await k8sCoreApi.deleteNamespace(`t-${team}`).catch((error) => {
-    throw new Error(error.response.body.message);
-  });
 };
-module.exports.deleteNamespaceForTeam = deleteNamespaceForTeam;
+//END DESKTOP AND SERVICES
 
-const deletePodForTeam = async (team) => {
-  const res = await k8sCoreApi.listNamespacedPod(
-    `t-${team}`,
-    true,
-    undefined,
-    undefined,
-    undefined,
-    `app=wrongsecrets,team=${team},deployment-context=${get('deploymentContext')}`
-  );
-
-  const pods = res.body.items;
-
-  if (pods.length !== 1) {
-    throw new Error(`Unexpected number of pods ${pods.length}`);
-  }
-
-  const podname = pods[0].metadata.name;
-
-  await k8sCoreApi.deleteNamespacedPod(podname, `t-${team}`);
-};
-module.exports.deletePodForTeam = deletePodForTeam;
-
-const deleteDesktopPodForTeam = async (team) => {
-  const res = await k8sCoreApi.listNamespacedPod(
-    `t-${team}`,
-    true,
-    undefined,
-    undefined,
-    undefined,
-    `app=virtualdesktop,team=${team},deployment-context=${get('deploymentContext')}`
-  );
-
-  const pods = res.body.items;
-
-  if (pods.length !== 1) {
-    throw new Error(`Unexpected number of pods ${pods.length}`);
-  }
-
-  const podname = pods[0].metadata.name;
-
-  await k8sCoreApi.deleteNamespacedPod(podname, `t-${team}`);
-};
-module.exports.deleteDesktopPodForTeam = deleteDesktopPodForTeam;
-
-const getJuiceShopInstanceForTeamname = (teamname) => {
-  logger.info(`checking readiness for ${teamname}`);
+// Management functions
+const getJuiceShopInstances = () => {
   return k8sAppsApi
-    .readNamespacedDeployment(`t-${teamname}-wrongsecrets`, `t-${teamname}`)
-    .then((res) => {
-      if (
-        Object.prototype.hasOwnProperty.call(res.body, 'metadata') &&
-        Object.prototype.hasOwnProperty.call(res.body.metadata, 'annotations')
-      ) {
-        return {
-          readyReplicas: res.body.status.readyReplicas,
-          availableReplicas: res.body.status.availableReplicas,
-          passcodeHash: res.body.metadata.annotations['wrongsecrets-ctf-party/passcode'],
-        };
-      }
-      return;
+    .listDeploymentForAllNamespaces({
+      allowWatchBookmarks: true,
+      _continue: undefined,
+      fieldSelector: undefined,
+      labelSelector: 'app in (wrongsecrets, virtualdesktop, secret-challenge-53)',
+      limit: 200,
     })
     .catch((error) => {
-      if (error.response.body.message.includes('No such container')) {
-        return;
-      }
+      logger.info('error for getJuiceShopInstances: {}', error);
       throw new Error(error.response.body.message);
     });
 };
-module.exports.getJuiceShopInstanceForTeamname = getJuiceShopInstanceForTeamname;
 
 const updateLastRequestTimestampForTeam = (teamname) => {
   const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
-  return k8sAppsApi.patchNamespacedDeployment(
-    `t-${teamname}-wrongsecrets`,
-    `t-${teamname}`,
-    {
-      metadata: {
-        annotations: {
-          'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
-          'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+  return k8sAppsApi
+    .patchNamespacedDeployment({
+      name: `t-${teamname}-wrongsecrets`,
+      namespace: `t-${teamname}`,
+      body: {
+        metadata: {
+          annotations: {
+            'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
+            'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+          },
         },
       },
-    },
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    options
-  );
+      options: options,
+    })
+    .catch((error) => {
+      logger.info('error for updateLastRequestTimestampForTeam: {}', error);
+      throw new Error(error.response.body.message);
+    });
 };
-module.exports.updateLastRequestTimestampForTeam = updateLastRequestTimestampForTeam;
 
 const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
   const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
@@ -2101,16 +2109,448 @@ const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
     },
   };
 
-  return k8sAppsApi.patchNamespacedDeployment(
-    `${teamname}-wrongsecrets`,
-    `${teamname}`,
-    deploymentPatch,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    options
-  );
+  return k8sAppsApi.patchNamespacedDeployment({
+    name: `t-${teamname}-wrongsecrets`,
+    namespace: `t-${teamname}`,
+    body: deploymentPatch,
+    options: options,
+  });
 };
-module.exports.changePasscodeHashForTeam = changePasscodeHashForTeam;
+
+const deleteNamespaceForTeam = async (team) => {
+  await k8sCoreApi.deleteNamespace({ name: `t-${team}` }).catch((error) => {
+    throw new Error(error.response.body.message);
+  });
+};
+
+const deletePodForTeam = async (team) => {
+  const res = await k8sCoreApi.listNamespacedPod({
+    namespace: `t-${team}`,
+    pretty: true,
+    allowWatchBookmarks: true,
+    _continue: undefined,
+    fieldSelector: undefined,
+    labelSelector: `app=wrongsecrets,team=${team},deployment-context=${get('deploymentContext')}`,
+  });
+
+  const pods = res.items;
+
+  if (pods.length !== 1) {
+    throw new Error(`Unexpected number of pods ${pods.length}`);
+  }
+
+  const podname = pods[0].metadata.name;
+
+  await k8sCoreApi.deleteNamespacedPod({ name: podname, namespace: `t-${team}` });
+};
+
+const deleteDesktopPodForTeam = async (team) => {
+  const res = await k8sCoreApi.listNamespacedPod({
+    namespace: `t-${team}`,
+    pretty: true,
+    allowWatchBookmarks: true,
+    _continue: undefined,
+    fieldSelector: undefined,
+    labelSelector: `app=virtualdesktop,team=${team},deployment-context=${get('deploymentContext')}`,
+  });
+
+  const pods = res.items;
+
+  if (pods.length !== 1) {
+    throw new Error(`Unexpected number of pods ${pods.length}`);
+  }
+
+  const podname = pods[0].metadata.name;
+
+  await k8sCoreApi.deleteNamespacedPod({ name: podname, namespace: `t-${team}` });
+};
+
+// Add missing GCP functions if they don't exist
+const createGCPSecretsProviderForTeam = async (team) => {
+  const secretsYaml = `
+    - resourceName: "projects/${gcpProject}/secrets/wrongsecret-1/versions/latest"
+      fileName: "${gcpSecretsmanagerSecretName1}"
+    - resourceName: "projects/${gcpProject}/secrets/wrongsecret-2/versions/latest"
+      fileName: "${gcpSecretsmanagerSecretName2}"
+    `;
+  const secretProviderClass = {
+    apiVersion: 'secrets-store.csi.x-k8s.io/v1',
+    kind: 'SecretProviderClass',
+    metadata: {
+      name: 'wrongsecrets-gcp-secretsmanager',
+      namespace: `t-${team}`,
+    },
+    spec: {
+      provider: 'gcp',
+      parameters: {
+        secrets: secretsYaml,
+      },
+    },
+  };
+  return k8sCustomAPI
+    .createNamespacedCustomObject({
+      group: 'secrets-store.csi.x-k8s.io',
+      version: 'v1',
+      namespace: `t-${team}`,
+      plural: 'secretproviderclasses',
+      body: secretProviderClass,
+    })
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
+};
+
+const createIAMServiceAccountForTeam = async (team) => {
+  try {
+    const authClient = await authenticateGCP();
+    const serviceAccountName = `team-${team}`;
+    const projectId = `${gcpProject}`;
+    const iam = google.iam('v1');
+
+    const createServiceAccountResponse = await iam.projects.serviceAccounts.create({
+      name: `projects/${projectId}`,
+      requestBody: {
+        accountId: serviceAccountName,
+        serviceAccount: {
+          displayName: 'Service Account Display Name',
+        },
+      },
+      auth: authClient,
+    });
+
+    console.log(`Service account created: ${createServiceAccountResponse.data.name}`);
+
+    const member = `serviceAccount:${createServiceAccountResponse.data.email}`;
+
+    await secretmanagerGCPAccess(`projects/${gcpProject}/secrets/wrongsecret-1`, member);
+    await secretmanagerGCPAccess(`projects/${gcpProject}/secrets/wrongsecret-2`, member);
+    await secretmanagerGCPAccess(`projects/${gcpProject}/secrets/wrongsecret-3`, member);
+
+    console.log('Secret Manager Secret Accessor role granted.');
+  } catch (error) {
+    console.error('Error creating service account:', error);
+  }
+};
+
+const bindIAMServiceAccountToWorkloadForTeam = async (team) => {
+  const authClient = await authenticateGCP();
+  const projectId = `${gcpProject}`;
+  const serviceAccountEmail = `team-${team}@${gcpProject}.iam.gserviceaccount.com`;
+  const resource = `projects/${projectId}/serviceAccounts/${serviceAccountEmail}`;
+
+  const roleBinding = {
+    role: 'roles/iam.workloadIdentityUser',
+    members: [`serviceAccount:owasp-wrongsecrets.svc.id.goog[t-${team}/default]`],
+  };
+
+  const res = await authClient.request({
+    url: `https://iam.googleapis.com/v1/${resource}:setIamPolicy`,
+    method: 'POST',
+    data: {
+      policy: {
+        bindings: [roleBinding],
+      },
+    },
+  });
+
+  console.log(`Role binding added: ${JSON.stringify(res.data, null, 2)}`);
+};
+
+const patchServiceAccountForTeamForGCP = async (team) => {
+  const patch = {
+    metadata: {
+      annotations: {
+        'iam.gke.io/gcp-service-account': `team-${team}@${gcpProject}.iam.gserviceaccount.com`,
+      },
+    },
+  };
+  const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
+
+  return k8sCoreApi
+    .patchNamespacedServiceAccount(
+      { name: 'default', namespace: `t-${team}`, body: patch },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      options
+    )
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
+};
+
+const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
+  const deploymentWrongSecretsConfig = {
+    metadata: {
+      namespace: `t-${team}`,
+      name: `t-${team}-wrongsecrets`,
+      labels: {
+        app: 'wrongsecrets',
+        team: `${team}`,
+        'deployment-context': get('deploymentContext'),
+      },
+      annotations: {
+        'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
+        'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+        'wrongsecrets-ctf-party/passcode': passcodeHash,
+        'wrongsecrets-ctf-party/challengesSolved': '0',
+        'wrongsecrets-ctf-party/challenges': '[]',
+      },
+    },
+    spec: {
+      selector: {
+        matchLabels: {
+          app: 'wrongsecrets',
+          team: `${team}`,
+          'deployment-context': get('deploymentContext'),
+        },
+      },
+      template: {
+        metadata: {
+          labels: {
+            app: 'wrongsecrets',
+            team: `${team}`,
+            'deployment-context': get('deploymentContext'),
+          },
+        },
+        spec: {
+          automountServiceAccountToken: false,
+          serviceAccountName: 'default',
+          securityContext: {
+            runAsUser: 2000,
+            runAsGroup: 2000,
+            fsGroup: 2000,
+          },
+          containers: [
+            {
+              name: 'wrongsecrets',
+              image: `jeroenwillemsen/wrongsecrets:${wrongSecretsContainterTag}`,
+              imagePullPolicy: get('wrongsecrets.imagePullPolicy'),
+              securityContext: {
+                allowPrivilegeEscalation: false,
+                readOnlyRootFilesystem: true,
+                runAsNonRoot: true,
+                capabilities: { drop: ['ALL'] },
+                seccompProfile: { type: 'RuntimeDefault' },
+              },
+              env: [
+                {
+                  name: 'hints_enabled',
+                  value: 'false',
+                },
+                {
+                  name: 'ctf_enabled',
+                  value: 'true',
+                },
+                {
+                  name: 'ctf_key',
+                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                },
+                {
+                  name: 'K8S_ENV',
+                  value: 'gcp',
+                },
+                {
+                  name: 'APP_VERSION',
+                  value: `${wrongSecretsContainterTag}-ctf`,
+                },
+                {
+                  name: 'CTF_SERVER_ADDRESS',
+                  value: `${heroku_wrongsecret_ctf_url}`,
+                },
+                {
+                  name: 'FILENAME_CHALLENGE9',
+                  value: `${gcpSecretsmanagerSecretName1}`,
+                },
+                {
+                  name: 'FILENAME_CHALLENGE10',
+                  value: `${gcpSecretsmanagerSecretName2}`,
+                },
+                {
+                  name: 'challenge_acht_ctf_to_provide_to_host_value',
+                  value: 'provideThisKeyToHostThankyouAlllGoodDoYouLikeRandomLogging?',
+                },
+                {
+                  name: 'challenge_thirty_ctf_to_provide_to_host_value',
+                  value: 'provideThisKeyToHostWhenYouRealizeLSIsOK?',
+                },
+                {
+                  name: 'SPECIAL_K8S_SECRET',
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: 'secrets-file',
+                      key: 'funny.entry',
+                    },
+                  },
+                },
+                {
+                  name: 'SPECIAL_SPECIAL_K8S_SECRET',
+                  valueFrom: {
+                    secretKeyRef: {
+                      name: 'funnystuff',
+                      key: 'funnier',
+                    },
+                  },
+                },
+                {
+                  name: 'SPRING_CLOUD_VAULT_URI',
+                  value: 'http://vault.vault.svc.cluster.local:8200',
+                },
+                {
+                  name: 'JWT_PATH',
+                  value: '/var/run/secrets/kubernetes.io/serviceaccount/token',
+                },
+                {
+                  name: 'CHALLENGE33',
+                  valueFrom: {
+                    secretKeyRef: {
+                      name: 'challenge33',
+                      key: 'answer',
+                    },
+                  },
+                },
+              ],
+              envFrom: get('wrongsecrets.envFrom'),
+              ports: [
+                {
+                  containerPort: 8080,
+                },
+              ],
+              readinessProbe: {
+                httpGet: {
+                  path: '/actuator/health/readiness',
+                  port: 8080,
+                },
+                initialDelaySeconds: 90,
+                timeoutSeconds: 30,
+                periodSeconds: 10,
+                failureThreshold: 10,
+              },
+              livenessProbe: {
+                httpGet: {
+                  path: '/actuator/health/liveness',
+                  port: 8080,
+                },
+                initialDelaySeconds: 70,
+                timeoutSeconds: 30,
+                periodSeconds: 30,
+              },
+              resources: {
+                requests: {
+                  memory: '512Mi',
+                  cpu: '200m',
+                  'ephemeral-storage': '1Gi',
+                },
+                limits: {
+                  memory: '512Mi',
+                  cpu: '500m',
+                  'ephemeral-storage': '2Gi',
+                },
+              },
+              volumeMounts: [
+                {
+                  mountPath: '/tmp',
+                  name: 'ephemeral',
+                },
+                {
+                  name: 'secrets-store-inline',
+                  mountPath: '/mnt/secrets-store',
+                  readOnly: true,
+                },
+              ],
+            },
+          ],
+          volumes: [
+            {
+              name: 'secrets-store-inline',
+              csi: {
+                driver: 'secrets-store.csi.k8s.io',
+                readOnly: true,
+                volumeAttributes: {
+                  secretProviderClass: 'wrongsecrets-gcp-secretsmanager',
+                },
+              },
+            },
+            {
+              name: 'ephemeral',
+              emptyDir: {},
+            },
+          ],
+          tolerations: get('wrongsecrets.tolerations'),
+          affinity: get('wrongsecrets.affinity'),
+          runtimeClassName: get('wrongsecrets.runtimeClassName')
+            ? get('wrongsecrets.runtimeClassName')
+            : undefined,
+        },
+      },
+    },
+  };
+  return k8sAppsApi
+    .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
+    .catch((error) => {
+      throw new Error(error.response.body.message);
+    });
+};
+
+// FIXED EXPORT PATTERN - ALL FUNCTIONS WITH CONSISTENT REFERENCES
+module.exports = {
+  // Helper functions
+  safeApiCall,
+  validateTeamName,
+  checkSealedSecretsController,
+
+  // Core functions
+  createConfigmapForTeam,
+  createSecretsfileForTeam,
+  createChallenge33SecretForTeam,
+  createSealedSecretForTeam,
+  createSealedChallenge33SecretForTeam,
+  getSealedSecretsPublicKey,
+  createNameSpaceForTeam,
+  createK8sDeploymentForTeam,
+  createK8sChallenge53DeploymentForTeam,
+  getChallenge53InstanceForTeam,
+  deleteChallenge53DeploymentForTeam,
+
+  // AWS functions
+  createAWSSecretsProviderForTeam,
+  patchServiceAccountForTeamForAWS,
+  createAWSDeploymentForTeam,
+
+  // Azure functions
+  createAzureSecretsProviderForTeam,
+  createAzureDeploymentForTeam, // NOW PROPERLY EXPORTED
+
+  // GCP functions
+  createGCPSecretsProviderForTeam,
+  createIAMServiceAccountForTeam,
+  bindIAMServiceAccountToWorkloadForTeam,
+  patchServiceAccountForTeamForGCP,
+  createGCPDeploymentForTeam,
+
+  // Networking functions
+  getKubernetesEndpointToWhitelist,
+  createNSPsforTeam,
+
+  // RBAC functions
+  createServiceAccountForWebTop,
+  createRoleForWebTop,
+  createRoleBindingForWebtop,
+
+  // Desktop and Services
+  createDesktopDeploymentForTeam,
+  createServiceForTeam,
+  createDesktopServiceForTeam,
+
+  // Management functions
+  getJuiceShopInstances,
+  getJuiceShopInstanceForTeamname, // THIS IS THE KEY ONE THAT WAS MISSING
+  updateLastRequestTimestampForTeam,
+  changePasscodeHashForTeam,
+  deleteNamespaceForTeam,
+  deletePodForTeam,
+  deleteDesktopPodForTeam,
+};

@@ -9,6 +9,7 @@ const {
   getJuiceShopInstanceForTeamname,
   getJuiceShopInstances,
   createK8sDeploymentForTeam,
+  createK8sChallenge53DeploymentForTeam,
   createDesktopDeploymentForTeam,
   createServiceForTeam,
   createNameSpaceForTeam,
@@ -119,14 +120,12 @@ test('create team fails when max instances is reached', async () => {
   });
   getJuiceShopInstances.mockImplementation(async () => {
     return {
-      body: {
-        items: [
-          1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-          10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8,
-          9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7,
-          8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-        ],
-      },
+      items: [
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+      ],
     };
   });
 
@@ -141,6 +140,18 @@ test('create team fails when max instances is reached', async () => {
 test('create team creates a instance for team via k8s service', async () => {
   getJuiceShopInstanceForTeamname.mockImplementation(async () => {
     throw new Error(`deployments.apps "t-team42-wrongsecrets" not found`);
+  });
+
+  // Add mock for Challenge 53 deployment
+  createK8sChallenge53DeploymentForTeam.mockImplementation(async () => {
+    return {
+      body: {
+        metadata: {
+          name: 'secret-challenge-53',
+          namespace: 't-team42',
+        },
+      },
+    };
   });
 
   let passcode = null;
@@ -158,6 +169,7 @@ test('create team creates a instance for team via k8s service', async () => {
   expect(createConfigmapForTeam).toHaveBeenCalled();
   expect(createSecretsfileForTeam).toHaveBeenCalled();
   expect(createChallenge33SecretForTeam).toHaveBeenCalled();
+  expect(createK8sChallenge53DeploymentForTeam).toHaveBeenCalled();
   expect(createNameSpaceForTeam).toHaveBeenCalled();
   expect(createK8sDeploymentForTeam).toHaveBeenCalled();
   expect(createDesktopDeploymentForTeam).toHaveBeenCalled();

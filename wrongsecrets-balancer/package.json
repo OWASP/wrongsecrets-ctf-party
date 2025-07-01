@@ -14,7 +14,7 @@
     "@google-cloud/iam": "^2.0.0",
     "@google-cloud/secret-manager": "^6.0.0",
     "@google-cloud/storage": "^7.14.0",
-    "@kubernetes/client-node": "^1.1.2",
+    "@kubernetes/client-node": "^1.2.0",
     "basic-auth-connect": "^1.1.0",
     "bcryptjs": "^2.4.3",
     "cookie": "^1.0.1",

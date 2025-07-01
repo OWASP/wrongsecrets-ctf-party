@@ -142,6 +142,31 @@ function RestartDesktopInstanceButton({ team }) {
   );
 }
 
+function RestartChallenge53Button({ team }) {
+  const [restarting, setRestarting] = useState(false);
+
+  const restart = async (event) => {
+    event.preventDefault();
+    setRestarting(true);
+    try {
+      await fetch(`/balancer/admin/teams/${team}/restartchallenge53`, {
+        method: 'POST',
+      });
+    } finally {
+      setRestarting(false);
+    }
+  };
+  return (
+    <SmallSecondary onClick={restart}>
+      {restarting ? (
+        <FormattedMessage id="admin_table.restarting" defaultMessage="Restarting..." />
+      ) : (
+        <FormattedMessage id="admin_table.restart" defaultMessage="Restart-C53" />
+      )}
+    </SmallSecondary>
+  );
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function DeleteInstanceButton({ team }) {
@@ -173,20 +198,46 @@ function DeleteInstanceButton({ team }) {
   );
 }
 
+// Fix the AdminPage.js component
 export default function AdminPage() {
   const [teams, setTeams] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { formatMessage, formatDate } = useIntl();
 
   async function updateAdminData() {
     try {
+      setLoading(true);
       const response = await fetch(`/balancer/admin/all`);
       if (!response.ok) {
         throw new Error('Failed to fetch current teams');
       }
       const data = await response.json();
-      setTeams(data.instances);
+
+      // Fix: Handle the response structure properly and ensure data is always an array
+      let teamsData = [];
+      if (data && data.items && Array.isArray(data.items)) {
+        teamsData = data.items;
+      } else if (data && Array.isArray(data)) {
+        teamsData = data;
+      }
+
+      // Ensure each team object has all required properties
+      const sanitizedTeams = teamsData.map(team => ({
+        team: team.team || 'unknown',
+        name: team.name || 'unknown',
+        ready: Boolean(team.ready),
+        createdAt: team.createdAt ? new Date(team.createdAt) : new Date(),
+        lastConnect: team.lastConnect ? new Date(team.lastConnect) : new Date(),
+      }));
+
+      console.log('Received teams data:', sanitizedTeams);
+      setTeams(sanitizedTeams);
     } catch (err) {
       console.error('Failed to fetch current teams!', err);
+      // Set empty array on error to prevent crashes
+      setTeams([]);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -225,12 +276,19 @@ export default function AdminPage() {
       selector: row => row.createdAt,
       sortable: true,
       format: ({ createdAt }) => {
-        const { value, unit } = selectUnit(createdAt);
-        return (
-          <Text title={createdAt}>
-            <FormattedRelativeTime value={value} unit={unit} />
-          </Text>
-        );
+        try {
+          // Fix: Ensure createdAt is a valid date
+          const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
+          const { value, unit } = selectUnit(date);
+          return (
+            <Text title={formatDate(date)}>
+              <FormattedRelativeTime value={value} unit={unit} />
+            </Text>
+          );
+        } catch (error) {
+          console.error('Error formatting createdAt:', error);
+          return <Text>-</Text>;
+        }
       },
     },
     {
@@ -238,17 +296,24 @@ export default function AdminPage() {
       selector: row => row.lastConnect,
       sortable: true,
       format: ({ lastConnect }) => {
-        const { value, unit } = selectUnit(lastConnect);
-        return (
-          <Text title={formatDate(lastConnect)}>
-            <FormattedRelativeTime value={value} unit={unit} />
-          </Text>
-        );
+        try {
+          // Fix: Ensure lastConnect is a valid date
+          const date = lastConnect instanceof Date ? lastConnect : new Date(lastConnect);
+          const { value, unit } = selectUnit(date);
+          return (
+            <Text title={formatDate(date)}>
+              <FormattedRelativeTime value={value} unit={unit} />
+            </Text>
+          );
+        } catch (error) {
+          console.error('Error formatting lastConnect:', error);
+          return <Text>-</Text>;
+        }
       },
     },
     {
       name: formatMessage(messages.actions),
-      selector: row => row.actions,
+      selector: row => row.team, // Fix: Use a valid selector
       right: true,
       cell: ({ team }) => {
         return (
@@ -258,6 +323,8 @@ export default function AdminPage() {
             <RestartInstanceButton team={team} />
             <br />
             <RestartDesktopInstanceButton team={team} />
+            <br />
+            <RestartChallenge53Button team={team} />
           </>
         );
       },
@@ -266,6 +333,15 @@ export default function AdminPage() {
       minWidth: '200px',
     },
   ];
+
+  // Add loading state to prevent rendering issues
+  if (loading && teams.length === 0) {
+    return (
+      <BigBodyCard>
+        <Text>Loading teams...</Text>
+      </BigBodyCard>
+    );
+  }
 
   return (
     <BigBodyCard>
@@ -278,6 +354,8 @@ export default function AdminPage() {
         columns={columns}
         data={teams}
         keyField="team"
+        progressPending={loading}
+        progressComponent={<Text>Loading...</Text>}
       />
     </BigBodyCard>
   );

@@ -39,6 +39,7 @@ const {
   createRoleForWebTop,
   createRoleBindingForWebtop,
   createNSPsforTeam,
+  createK8sChallenge53DeploymentForTeam,
 } = require('../kubernetes');
 
 const loginCounter = new promClient.Counter({
@@ -73,7 +74,7 @@ const cookieSettings = {
  */
 async function interceptAdminLogin(req, res, next) {
   const { team } = req.params;
-  const { passcode } = req.body;
+  const passcode = req.body && req.body.passcode;
 
   if (team === get('admin.username') && passcode === get('admin.password')) {
     loginCounter.inc({ type: 'login', userType: 'admin' }, 1);
@@ -221,8 +222,9 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 
   try {
     const response = await getJuiceShopInstances();
+    console.log('Response:', response);
 
-    const instances = response.body.items;
+    const instances = response.items;
 
     logger.info(`Reached ${instances.length}/${maxInstances} instances`);
     if (instances.length >= maxInstances) {
@@ -363,6 +365,15 @@ async function createTeam(req, res) {
   }
 
   try {
+    logger.info(`Creating challenge53 Deployment for team '${team}'`);
+    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
+    logger.info(`Created challenge53 Deployment for team '${team}'`);
+  } catch (error) {
+    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+
+  try {
     loginCounter.inc({ type: 'registration', userType: 'user' }, 1);
 
     res
@@ -376,7 +387,11 @@ async function createTeam(req, res) {
       });
   } catch (error) {
     logger.error(`Error while creating deployment or service for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    if (!res.headersSent) {
+      res.status(500).send({ message: 'Failed to Create Instance' });
+    } else {
+      logger.error('Could not send error response because headers were already sent');
+    }
   }
 }
 
@@ -487,6 +502,15 @@ async function createAWSTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+
+  try {
+    logger.info(`Creating challenge53 Deployment for team '${team}'`);
+    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
+    logger.info(`Created challenge53 Deployment for team '${team}'`);
+  } catch (error) {
+    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
@@ -611,6 +635,14 @@ async function createAzureTeam(req, res) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
+  try {
+    logger.info(`Creating challenge53 Deployment for team '${team}'`);
+    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
+    logger.info(`Created challenge53 Deployment for team '${team}'`);
+  } catch (error) {
+    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
 
   try {
     loginCounter.inc({ type: 'registration', userType: 'user' }, 1);
@@ -668,7 +700,7 @@ async function createGCPTeam(req, res) {
   }
 
   try {
-    logger.info(`Creating IAM service account for team '${team}'`);
+    logger.info(`IAM service account for team '${team}'`);
     await createIAMServiceAccountForTeam(team);
     logger.info(`Created IAM service account for team '${team}'`);
   } catch (error) {
@@ -757,6 +789,14 @@ async function createGCPTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+  try {
+    logger.info(`Creating challenge53 Deployment for team '${team}'`);
+    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
+    logger.info(`Created challenge53 Deployment for team '${team}'`);
+  } catch (error) {
+    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
@@ -893,3 +933,47 @@ router.post('/reset-passcode', resetPasscode);
 router.get('/:team/wait-till-ready', validator.params(paramsSchema), awaitReadiness);
 
 module.exports = router;
+
+// const listInstances = async (req, res) => {
+//   try {
+//     logger.info('Listing all team instances');
+
+//     const instances = await getJuiceShopInstances();
+
+//     // Fix: Check if instances and instances.body exist
+//     if (!instances || !instances.body || !instances.body.items) {
+//       logger.warn('No instances found or invalid response structure');
+//       return res.status(200).json({
+//         items: [],
+//       });
+//     }
+
+//     const teams = instances.body.items
+//       .filter((deployment) => deployment.metadata.labels.app === 'wrongsecrets')
+//       .map((deployment) => {
+//         const team = deployment.metadata.labels.team;
+//         const annotations = deployment.metadata.annotations || {};
+
+//         return {
+//           team,
+//           name: deployment.metadata.name,
+//           ready: deployment.status?.readyReplicas > 0,
+//           createdAt: new Date(deployment.metadata.creationTimestamp),
+//           lastConnect: new Date(
+//             parseInt(annotations['wrongsecrets-ctf-party/lastRequest']) ||
+//               deployment.metadata.creationTimestamp
+//           ),
+//         };
+//       });
+
+//     res.status(200).json({
+//       items: teams,
+//     });
+//   } catch (error) {
+//     logger.error('Error listing instances:', error.message);
+//     res.status(500).json({
+//       error: 'Failed to list instances',
+//       message: error.message,
+//     });
+//   }
+// };

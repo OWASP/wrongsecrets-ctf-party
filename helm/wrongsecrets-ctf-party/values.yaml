@@ -40,7 +40,7 @@ balancer:
     # -- Set this to a fixed random alpa-numeric string (recommended length 24 chars). If not set this get randomly generated with every helm upgrade, each rotation invalidates all active cookies / sessions requirering users to login again.
     cookieParserSecret: null
   repository: jeroenwillemsen/wrongsecrets-balancer
-  tag: 1.8.5cloud
+  tag: 1.9.2-cloud
   # -- Number of replicas of the wrongsecrets-balancer deployment. Changing this in a commit? PLEASE UPDATE THE GITHUB WORKLFOWS THEN!(NUMBER OF "TRUE")
   replicas: 2
   # -- Port to expose on the balancer pods which the container listens on
@@ -147,7 +147,7 @@ wrongsecrets:
   maxInstances: 500
   # -- Wrongsecrets Image to use
   image: jeroenwillemsen/wrongsecrets
-  tag: 1.9.2-no-vault
+  tag: 1.12.0-no-vault
   # -- Change the key when hosting a CTF event. This key gets used to generate the challenge flags. See: https://github.com/OWASP/wrongsecrets#ctf
   ctfKey: "zLp@.-6fMW6L-7R3b!9uR_K!NfkkTr"
   # -- Specify a custom Wrongsecrets config.yaml. See the Wrongsecrets Docs for any needed ENVs: https://github.com/OWASP/wrongsecrets
@@ -209,7 +209,7 @@ virtualdesktop:
   maxInstances: 500
   # -- Wrongsecrets Image to use
   image: jeroenwillemsen/wrongsecrets-desktop-k8s
-  tag: 1.9.2
+  tag: 1.12.0
   repository: commjoenie/wrongSecrets
   resources:
     request:
@@ -240,7 +240,7 @@ vaultContainer:
   maxInstances: 500
   # -- Juice Shop Image to use
   image: hashicorp/vault
-  tag: 1.15.1
+  tag: 1.19.3
   repository: commjoenie/wrongSecrets
   resources:
     request:
@@ -303,6 +303,26 @@ wrongsecretsCleanup:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+sealed-secrets:
+  # Install the controller
+  enabled: true
+
+  # Install the CRDs
+  createSealedSecretCRDs: true
+
+  # Make the controller cluster-wide so it can manage keys in all namespaces
+  clusterWide: true
+
+  # Optionally, set this to true to automatically create a key in every namespace
+  keyrenewperiod: "0" # disables automatic key rotation
+  keySize: 4096
+  # -- If true, creates a ServiceAccount for the Sealed Secrets controller
+
+  controllerServiceAccount:
+    name: "sealed-secrets-controller"
+    annotations: {} # -- Annotations to be added to the ServiceAccount
+    automountServiceAccountToken: true # -- If true, the ServiceAccount will automatically mount the service account token
+
 kube-prometheus-stack:
   # -- If true, installs the kube-prometheus-stack chart which includes Prometheus, Alertmanager, Grafana, and other monitoring components
   enabled: true
