@@ -1792,14 +1792,14 @@ const createServiceAccountForWebTop = async (team) => {
 };
 
 const createRoleForWebTop = async (team) => {
- const res = await k8sCoreApi.listNamespacedPod({
+  const res = await k8sCoreApi.listNamespacedPod({
     namespace: `t-${team}`,
     pretty: true,
     allowWatchBookmarks: true,
     _continue: undefined,
     fieldSelector: undefined,
     labelSelector: `app=secret-challenge-53,team=${team},deployment-context=${get('deploymentContext')}`,
-    limit: 1
+    limit: 1,
   });
   const podName = res.items[0].metadata.name;
   const roleDefinitionForWebtop = {
@@ -2134,7 +2134,7 @@ const deleteNamespaceForTeam = async (team) => {
 };
 
 const deletePodForTeam = async (team) => {
- const res = await k8sCoreApi.listNamespacedPod({
+  const res = await k8sCoreApi.listNamespacedPod({
     namespace: `t-${team}`,
     pretty: true,
     allowWatchBookmarks: true,
