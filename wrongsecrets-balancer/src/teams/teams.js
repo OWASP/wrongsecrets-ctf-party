@@ -322,6 +322,15 @@ async function createTeam(req, res) {
   }
 
   try {
+    logger.info(`Creating challenge53 Deployment for team '${team}'`);
+    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
+    logger.info(`Created challenge53 Deployment for team '${team}'`);
+  } catch (error) {
+    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+
+  try {
     logger.info(`Creating role for virtual desktop in K8s '${team}'`);
     await createRoleForWebTop(team);
     logger.info(`Created role for virtual desktopfor team '${team}'`);
@@ -361,15 +370,6 @@ async function createTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating challenge53 Deployment for team '${team}'`);
-    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
-    logger.info(`Created challenge53 Deployment for team '${team}'`);
-  } catch (error) {
-    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
