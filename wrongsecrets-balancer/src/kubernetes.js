@@ -259,7 +259,8 @@ const createChallenge33SecretForTeam = async (team) => {
  * @param {string} value - The challenge 48 secret
  */
 const createChallenge48SecretForTeam = async (team, value) => {
-  const sealedSecretCert = getSealedSecretsPublicKey();
+  const sealedSecretCert = await getSealedSecretsPublicKey();
+  logger.info(`Cert: ${sealedSecretCert}`);
   const cert = forge.pki.certificateFromPem(sealedSecretCert);
   const key = cert.publicKey;
   const encrypted = key.encrypt(value, 'RSA-OAEP', {
@@ -780,9 +781,9 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
       );
       throw new Error(
         error.message ||
-          error.body?.message ||
-          'Failed to create deployment for body: ' +
-            JSON.stringify(deploymentWrongSecretsConfig, null, 2)
+        error.body?.message ||
+        'Failed to create deployment for body: ' +
+        JSON.stringify(deploymentWrongSecretsConfig, null, 2)
       );
     });
 };
