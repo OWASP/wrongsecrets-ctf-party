@@ -16,7 +16,7 @@ WRONGSECRETS_IMAGE=$(cat helm/wrongsecrets-ctf-party/values.yaml | yq '.wrongsec
 WRONGSECRETS_TAG=$(cat helm/wrongsecrets-ctf-party/values.yaml | yq '.wrongsecrets.tag')
 WEBTOP_IMAGE=$(cat helm/wrongsecrets-ctf-party/values.yaml | yq '.virtualdesktop.image')
 WEBTOP_TAG=$(cat helm/wrongsecrets-ctf-party/values.yaml | yq '.virtualdesktop.tag')
-echo "doing workaround for selaed secrets"
+echo "doing workaround for sealed secrets"
 helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
 helm install ws-sealedsecrets sealed-secrets/sealed-secrets --namespace kube-system
 echo "Pulling in required images to actually run $WRONGSECRETS_IMAGE:$WRONGSECRETS_TAG & $WEBTOP_IMAGE:$WEBTOP_TAG."

@@ -8,6 +8,9 @@ const {
   NetworkingV1Api,
 } = require('@kubernetes/client-node');
 
+// Crypto library for sealed secret
+const forge = require('node-forge');
+
 const kc = new KubeConfig();
 kc.loadFromCluster();
 
@@ -252,6 +255,25 @@ const createChallenge33SecretForTeam = async (team) => {
 };
 
 /**
+ * @param {string} team - The team name
+ * @param {string} value - The challenge 48 secret
+ */
+const createChallenge48SecretForTeam = async (team, value) => {
+  const sealedSecretCert = getSealedSecretsPublicKey();
+  const cert = forge.pki.certificateFromPem(sealedSecretCert);
+  const key = cert.publicKey;
+  const encrypted = key.encrypt(value, 'RSA-OAEP', {
+    md: forge.md.sha256.create(),
+    mgf1: { md: forge.md.sha1.create() },
+  });
+  createSealedSecretForTeam(
+    team,
+    'challenge48secret',
+    Buffer.from(encrypted, 'binary').toString('base64')
+  );
+};
+
+/**
  * Create a SealedSecret in the team's namespace for secure secret management
  * @param {string} team - The team name
  * @param {string} secretName - The name for the SealedSecret
@@ -307,7 +329,6 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
 
 /**
  * Create a sealed secret for challenge 33 specific to the team
- * TODO: REPLACE WITH CHALLENGE 53 FOR ACTUAL SEALED SECRET
  * @param {string} team - The team name
  */
 const createSealedChallenge33SecretForTeam = async (team) => {
@@ -325,8 +346,14 @@ const createSealedChallenge33SecretForTeam = async (team) => {
  */
 const getSealedSecretsPublicKey = async () => {
   try {
+    const list = await k8sCoreApi.readNamespacedSecret({
+      namespace: 'kube-system',
+      labelSelector: { "sealedsecrets.bitnami.com/sealed-secrets-key": "active" },
+    });
+    console.log(list.items);
+    secretName = list.items[0].metadata.name;
     const response = await k8sCoreApi.readNamespacedSecret({
-      name: 'sealed-secrets-key',
+      name: secretName,
       namespace: 'kube-system',
     });
     return response.data['tls.crt'];
@@ -751,9 +778,9 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
       );
       throw new Error(
         error.message ||
-          error.body?.message ||
-          'Failed to create deployment for body: ' +
-            JSON.stringify(deploymentWrongSecretsConfig, null, 2)
+        error.body?.message ||
+        'Failed to create deployment for body: ' +
+        JSON.stringify(deploymentWrongSecretsConfig, null, 2)
       );
     });
 };
@@ -2524,6 +2551,7 @@ module.exports = {
   createK8sChallenge53DeploymentForTeam,
   getChallenge53InstanceForTeam,
   deleteChallenge53DeploymentForTeam,
+  createChallenge48SecretForTeam,
 
   // AWS functions
   createAWSSecretsProviderForTeam,
