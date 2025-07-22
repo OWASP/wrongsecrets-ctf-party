@@ -57,7 +57,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 |------------|------|---------|
 | https://grafana.github.io/helm-charts | loki | 2.16.0 |
 | https://grafana.github.io/helm-charts | promtail | 3.11.0 |
-| https://prometheus-community.github.io/helm-charts | kube-prometheus-stack | 43.3.1 |
+| https://prometheus-community.github.io/helm-charts | kube-prometheus-stack | 75.12.0 |
 
 ## Values
 
