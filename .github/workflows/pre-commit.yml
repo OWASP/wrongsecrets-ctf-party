@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - run: gh pr edit ${{ github.event.number }} --remove-label 'pre-commit ci run'
         if: github.event.action == 'labeled' && github.event.label.name == 'pre-commit ci run'
         env:
