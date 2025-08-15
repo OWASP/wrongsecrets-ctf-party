@@ -11,7 +11,7 @@ Bootstrap, build, and test the repository:
 **Core Dependencies (Required):**
 - Node.js v20+ (project targets v22)
 - npm
-- Docker 
+- Docker
 - kubectl
 - Helm 3
 - yq
@@ -24,7 +24,7 @@ Bootstrap, build, and test the repository:
 5. `cd cleaner && npm ci` -- cleaner dependencies (3 seconds)
 
 **Testing:**
-- `cd wrongsecrets-balancer && npm test` -- balancer tests (2 seconds) 
+- `cd wrongsecrets-balancer && npm test` -- balancer tests (2 seconds)
 - `cd cleaner && npm test` -- cleaner tests (2 seconds)
 - **CRITICAL**: UI must be built first or balancer tests fail with 302 redirect errors
 
@@ -53,7 +53,7 @@ Bootstrap, build, and test the repository:
    ```bash
    # Run all tests (set 2 minute timeout)
    cd wrongsecrets-balancer && npm test
-   cd ../cleaner && npm test  
+   cd ../cleaner && npm test
    ```
 
 3. **Lint Validation:**
@@ -84,7 +84,7 @@ pre-commit run --all-files
 
 **Key Components:**
 - `wrongsecrets-balancer/`: Node.js Express app - team management and load balancing
-- `wrongsecrets-balancer/ui/`: React frontend - team creation and admin interface  
+- `wrongsecrets-balancer/ui/`: React frontend - team creation and admin interface
 - `cleaner/`: Node.js app - Kubernetes namespace cleanup job
 - `helm/wrongsecrets-ctf-party/`: Helm chart for Kubernetes deployment
 - `aws/`, `gcp/`, `azure/`: Cloud provider deployment scripts
@@ -125,12 +125,12 @@ Key production settings in `helm/wrongsecrets-ctf-party/values.yaml`:
 - Docker builds require proper network/certificate setup
 
 **Timing Expectations:**
-- npm ci (root): 1 second  
+- npm ci (root): 1 second
 - npm ci (balancer): 5 seconds subsequent, 90 seconds fresh - NEVER CANCEL, set 3+ minute timeout
-- npm ci (UI): 13 seconds subsequent, 160 seconds fresh - NEVER CANCEL, set 5+ minute timeout  
+- npm ci (UI): 13 seconds subsequent, 160 seconds fresh - NEVER CANCEL, set 5+ minute timeout
 - npm run build (UI): 13 seconds - set 60 second timeout
 - npm test: 1-2 seconds each component
-- npm run lint: <1 second each component  
+- npm run lint: <1 second each component
 - Complete build chain: 35 seconds - NEVER CANCEL, set 10+ minute timeout
 - Docker builds: 2-5 minutes when working
 - Full deployment: 5-10 minutes depending on image pulls
