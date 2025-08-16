@@ -181,7 +181,7 @@ test('create team creates a instance for team via k8s service', async () => {
   const createDeploymentForTeamCallArgs = createK8sDeploymentForTeam.mock.calls[0][0];
   expect(createDeploymentForTeamCallArgs.team).toBe('team42');
   expect(bcrypt.compareSync(passcode, createDeploymentForTeamCallArgs.passcodeHash)).toBe(true);
-  expect(createServiceForTeam).toBeCalledWith('team42');
+  expect(createServiceForTeam).toHaveBeenCalledWith('team42');
 });
 
 test('reset passcode needs authentication if no cookie is sent', async () => {
