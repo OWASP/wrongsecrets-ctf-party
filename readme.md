@@ -68,6 +68,8 @@ A 100 contestant game can be played on the AWS, GCP, and Azure setup, which will
 
 This is an experimental release. It showed to work at 6 CTFs already, we just did not complete the documentation and the cleaning up of the Helm chart yet. However: it is working in its basis, and can support a good crowd. Currently, we support using Minikube, AWS EKS, GCP GKE, and Azure AKS (_**Please follow the readme in the folder for each cloud provider if you want to use it, as the guides section is not updated yet**_).
 
+**For Contributors**: Pull requests automatically generate preview deployments with containers published to GitHub Container Registry. See the automated PR comments for deployment instructions.
+
 ## How to use it
 
 The different setups are explained in [OWASP WrongSecrets CTF-instructions](https://github.com/OWASP/wrongsecrets/blob/master/ctf-instructions.md). With the 3-domain approach you generate flags for CTFD automatically, while with the 2-domain setup you need to set it up manually.

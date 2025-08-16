@@ -46,6 +46,37 @@ Pull requests should be as small/atomic as possible. Large, wide-sweeping change
 
   For example: `Fix #545` or `Closes #10`
 
+### Testing your changes with Preview Deployments
+
+When you create a pull request, GitHub Actions will automatically build and publish preview Docker containers to GitHub Container Registry. This allows you and reviewers to easily test your changes before merging.
+
+#### How Preview Deployments Work
+
+1. **Automatic Build**: When you open a PR, the preview workflow builds both `wrongsecrets-balancer` and `cleaner` containers
+2. **Container Publishing**: Images are pushed to `ghcr.io` with PR-specific tags (e.g., `pr-123`)
+3. **Deployment Instructions**: A comment is automatically posted on your PR with detailed deployment instructions
+4. **Easy Testing**: Anyone can deploy and test your changes using the provided Helm commands
+
+#### Using Preview Deployments
+
+After opening a PR, look for the automated comment that provides:
+
+- **Direct deployment commands** using Helm
+- **Custom values file** for advanced configuration
+- **Container registry links** to inspect the built images
+- **Local testing instructions** for different deployment scenarios
+
+Example deployment command from the preview comment:
+```bash
+helm install my-preview wrongsecrets/wrongsecrets-ctf-party \
+  --set balancer.repository=ghcr.io/owasp/wrongsecrets-balancer \
+  --set balancer.tag=pr-123 \
+  --set wrongsecretsCleanup.repository=ghcr.io/owasp/cleaner \
+  --set wrongsecretsCleanup.tag=pr-123
+```
+
+This makes it easy for maintainers and other contributors to test your changes in a real Kubernetes environment.
+
 ## How to set up your Contributor Environment
 
 1. Create a GitHub account. Multiple different GitHub subscription plans are available, but you only need a free one. Follow [these steps](https://help.github.com/en/articles/signing-up-for-a-new-github-account "Signing up for a new GitHub account") to set up your account.
