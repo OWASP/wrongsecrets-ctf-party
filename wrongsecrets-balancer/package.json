@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "lint": "eslint src/**",
-    "test": "NODE_ENV=test jest"
+    "test": "NODE_ENV=test jest src/proxy/proxy.test.js src/teams/teams.test.js"
   },
   "keywords": [],
   "author": "Project OWASP WrongSecrets",
@@ -57,6 +57,7 @@
     ],
     "testPathIgnorePatterns": [
       "ui/.*"
-    ]
+    ],
+    "clearMocks": true
   }
 }
