@@ -12,20 +12,19 @@ function selectUnit(date) {
   const diffInSeconds = diffInMs / 1000;
   const absDiffInSeconds = Math.abs(diffInSeconds);
   
-  const sign = diffInMs >= 0 ? -1 : 1; // Past dates should be negative for FormattedRelativeTime
-  
+  // For FormattedRelativeTime: negative values = past, positive values = future
   if (absDiffInSeconds < 60) {
-    return { value: Math.round(diffInSeconds) * sign, unit: 'second' };
+    return { value: -Math.round(diffInSeconds), unit: 'second' };
   } else if (absDiffInSeconds < 3600) {
-    return { value: Math.round(diffInSeconds / 60) * sign, unit: 'minute' };
+    return { value: -Math.round(diffInSeconds / 60), unit: 'minute' };
   } else if (absDiffInSeconds < 86400) {
-    return { value: Math.round(diffInSeconds / 3600) * sign, unit: 'hour' };
+    return { value: -Math.round(diffInSeconds / 3600), unit: 'hour' };
   } else if (absDiffInSeconds < 2629746) {
-    return { value: Math.round(diffInSeconds / 86400) * sign, unit: 'day' };
+    return { value: -Math.round(diffInSeconds / 86400), unit: 'day' };
   } else if (absDiffInSeconds < 31556952) {
-    return { value: Math.round(diffInSeconds / 2629746) * sign, unit: 'month' };
+    return { value: -Math.round(diffInSeconds / 2629746), unit: 'month' };
   } else {
-    return { value: Math.round(diffInSeconds / 31556952) * sign, unit: 'year' };
+    return { value: -Math.round(diffInSeconds / 31556952), unit: 'year' };
   }
 }
 
