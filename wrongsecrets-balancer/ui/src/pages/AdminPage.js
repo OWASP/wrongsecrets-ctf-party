@@ -2,9 +2,32 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import DataTable, { createTheme } from 'react-data-table-component';
 import { FormattedRelativeTime, defineMessages, useIntl, FormattedMessage } from 'react-intl';
-import { selectUnit } from '@formatjs/intl-utils';
 
 import { BodyCard, SecondaryButton } from '../Components';
+
+// Custom selectUnit function to replace the deprecated @formatjs/intl-utils version
+function selectUnit(date) {
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInSeconds = diffInMs / 1000;
+  const absDiffInSeconds = Math.abs(diffInSeconds);
+  
+  const sign = diffInMs >= 0 ? -1 : 1; // Past dates should be negative for FormattedRelativeTime
+  
+  if (absDiffInSeconds < 60) {
+    return { value: Math.round(diffInSeconds) * sign, unit: 'second' };
+  } else if (absDiffInSeconds < 3600) {
+    return { value: Math.round(diffInSeconds / 60) * sign, unit: 'minute' };
+  } else if (absDiffInSeconds < 86400) {
+    return { value: Math.round(diffInSeconds / 3600) * sign, unit: 'hour' };
+  } else if (absDiffInSeconds < 2629746) {
+    return { value: Math.round(diffInSeconds / 86400) * sign, unit: 'day' };
+  } else if (absDiffInSeconds < 31556952) {
+    return { value: Math.round(diffInSeconds / 2629746) * sign, unit: 'month' };
+  } else {
+    return { value: Math.round(diffInSeconds / 31556952) * sign, unit: 'year' };
+  }
+}
 
 // create react-data-table theme
 createTheme('multijuicer', {
