@@ -1,3 +1,4 @@
+---
 name: "Preview Deployment"
 
 on:
@@ -16,16 +17,30 @@ env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
 
 jobs:
+  set-tag:
+    name: "Determine Tag"
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.set-tag.outputs.tag }}
+    steps:
+      - name: Set output tag
+        id: set-tag
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "tag=pr-${{ github.event.number }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
   build-and-publish:
     name: "Build and Publish Preview Images"
     runs-on: ubuntu-latest
+    needs: set-tag
     strategy:
       matrix:
         component:
           - wrongsecrets-balancer
           - cleaner
-    outputs:
-      tag: ${{ steps.set-tag.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -40,24 +55,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set output tag
-        id: set-tag
-        run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "tag=pr-${{ github.event.number }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Generate metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_PREFIX }}/${{ matrix.component }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
+            type=raw,value=${{ needs.set-tag.outputs.tag }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -72,7 +76,7 @@ jobs:
   generate-preview-instructions:
     name: "Generate Preview Instructions"
     runs-on: ubuntu-latest
-    needs: build-and-publish
+    needs: [set-tag, build-and-publish]
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout
@@ -82,15 +86,6 @@ jobs:
         run: |
           sudo snap install yq
 
-      - name: Determine image tag
-        id: tag
-        run: |
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "tag=pr-${{ github.event.number }}" >> $GITHUB_OUTPUT
-          else
-            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
-          fi
-
       - name: Generate preview values
         id: values
         run: |
@@ -98,21 +93,22 @@ jobs:
           cat > preview-values.yaml << EOF
           balancer:
             repository: ${{ env.IMAGE_PREFIX }}/wrongsecrets-balancer
-            tag: ${{ steps.tag.outputs.tag }}
-          
+            tag: ${{ needs.set-tag.outputs.tag }}
+
           wrongsecretsCleanup:
             repository: ${{ env.IMAGE_PREFIX }}/cleaner
-            tag: ${{ steps.tag.outputs.tag }}
-          
+            tag: ${{ needs.set-tag.outputs.tag }}
+
           # Preview configuration
           ingress:
             enabled: true
             hosts:
-              - host: preview-${{ steps.tag.outputs.tag }}.wrongsecrets.local
+              - host: >-
+                  preview-${{ needs.set-tag.outputs.tag }}.wrongsecrets.local
                 paths:
                   - "/"
           EOF
-          
+
           # Output the content for use in the comment
           echo "values<<EOF" >> $GITHUB_OUTPUT
           cat preview-values.yaml >> $GITHUB_OUTPUT
@@ -123,77 +119,79 @@ jobs:
         run: |
           cat > instructions.md << 'EOF'
           ## 🚀 Preview Deployment Ready!
-          
-          Your pull request has been built and is ready for preview deployment. Here's how to test your changes:
-          
+
+          Your pull request has been built and is ready for preview deployment.
+          Here's how to test your changes:
+
           ### Container Images Built
-          
-          - **Balancer**: `${{ env.IMAGE_PREFIX }}/wrongsecrets-balancer:${{ steps.tag.outputs.tag }}`
-          - **Cleaner**: `${{ env.IMAGE_PREFIX }}/cleaner:${{ steps.tag.outputs.tag }}`
-          
+
+          - **Balancer**: `${{ env.IMAGE_PREFIX }}/wrongsecrets-balancer:${{ needs.set-tag.outputs.tag }}`
+          - **Cleaner**: `${{ env.IMAGE_PREFIX }}/cleaner:${{ needs.set-tag.outputs.tag }}`
+
           ### Quick Deploy with Helm
-          
+
           ```bash
           # Add the wrongsecrets helm repository
           helm repo add wrongsecrets https://owasp.org/wrongsecrets-ctf-party
           helm repo update
-          
+
           # Deploy with preview images
           helm install my-preview wrongsecrets/wrongsecrets-ctf-party \
             --set balancer.repository=${{ env.IMAGE_PREFIX }}/wrongsecrets-balancer \
-            --set balancer.tag=${{ steps.tag.outputs.tag }} \
+            --set balancer.tag=${{ needs.set-tag.outputs.tag }} \
             --set wrongsecretsCleanup.repository=${{ env.IMAGE_PREFIX }}/cleaner \
-            --set wrongsecretsCleanup.tag=${{ steps.tag.outputs.tag }} \
+            --set wrongsecretsCleanup.tag=${{ needs.set-tag.outputs.tag }} \
             --set imagePullPolicy=Always
-          
+
           # Port forward to access locally
           kubectl port-forward service/wrongsecrets-balancer 3000:3000
           ```
-          
+
           ### Deploy with Custom Values
-          
+
           <details>
           <summary>Click to see preview-values.yaml</summary>
-          
+
           ```yaml
           ${{ steps.values.outputs.values }}
           ```
-          
+
           </details>
-          
+
           ```bash
           # Save the above values to preview-values.yaml, then:
-          helm install my-preview wrongsecrets/wrongsecrets-ctf-party -f preview-values.yaml
+          helm install my-preview wrongsecrets/wrongsecrets-ctf-party \
+            -f preview-values.yaml
           ```
-          
+
           ### Deploy with Local Build Scripts
-          
+
           ```bash
           # Clone this PR
           git fetch origin pull/${{ github.event.number }}/head:pr-${{ github.event.number }}
           git checkout pr-${{ github.event.number }}
-          
+
           # Use the existing deployment script with custom images
           ./build-and-deploy.sh
           ```
-          
+
           ### Test the Changes
-          
+
           1. Access the application at http://localhost:3000
           2. Create a team and verify functionality
           3. Test any new features or bug fixes
-          
+
           ### Container Registry
-          
+
           The preview images are available at:
           - https://github.com/${{ github.repository_owner }}/wrongsecrets-ctf-party/pkgs/container/wrongsecrets-balancer
           - https://github.com/${{ github.repository_owner }}/wrongsecrets-ctf-party/pkgs/container/cleaner
-          
+
           ---
-          
+
           *This preview was automatically generated for PR #${{ github.event.number }}*
           EOF
-          
+
           echo "content<<EOF" >> $GITHUB_OUTPUT
           cat instructions.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -204,21 +202,21 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
-            
+
             // Find existing preview comment
             const comments = await github.rest.issues.listComments({
               owner,
               repo,
               issue_number,
             });
-            
-            const existingComment = comments.data.find(comment => 
-              comment.user.login === 'github-actions[bot]' && 
+
+            const existingComment = comments.data.find(comment =>
+              comment.user.login === 'github-actions[bot]' &&
               comment.body.includes('🚀 Preview Deployment Ready!')
             );
-            
+
             const body = `${{ steps.instructions.outputs.content }}`;
-            
+
             if (existingComment) {
               // Update existing comment
               await github.rest.issues.updateComment({
@@ -240,21 +238,16 @@ jobs:
   notify-main-branch:
     name: "Notify Main Branch Build"
     runs-on: ubuntu-latest
-    needs: build-and-publish
+    needs: [set-tag, build-and-publish]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-      - name: Determine image tag
-        id: tag
-        run: |
-          echo "tag=main" >> $GITHUB_OUTPUT
-
       - name: Create main branch notification
         run: |
           echo "## 🚀 Main Branch Preview Images Updated!"
           echo ""
           echo "New preview images have been built for the main branch:"
           echo ""
-          echo "- **Balancer**: \`${{ env.IMAGE_PREFIX }}/wrongsecrets-balancer:${{ steps.tag.outputs.tag }}\`"
-          echo "- **Cleaner**: \`${{ env.IMAGE_PREFIX }}/cleaner:${{ steps.tag.outputs.tag }}\`"
+          echo "- **Balancer**: \`${{ env.IMAGE_PREFIX }}/wrongsecrets-balancer:${{ needs.set-tag.outputs.tag }}\`"
+          echo "- **Cleaner**: \`${{ env.IMAGE_PREFIX }}/cleaner:${{ needs.set-tag.outputs.tag }}\`"
           echo ""
           echo "These can be used for testing the latest main branch changes."
