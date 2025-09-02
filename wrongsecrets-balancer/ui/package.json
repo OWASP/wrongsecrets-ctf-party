@@ -2,6 +2,9 @@
   "name": "frontend",
   "version": "0.1.1",
   "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "dependencies": {
     "axios": "^1.11.0",
     "crypto-js": "^4.2.0",
