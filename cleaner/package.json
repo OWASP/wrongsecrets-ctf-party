@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "k8s ChronJob for cleaning up unused WrongSecrets instances.",
   "main": "src/main.js",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "test": "jest",
     "lint": "eslint src/**"
@@ -21,7 +24,7 @@
     "eslint": "^9.14.0",
     "eslint-plugin-prettier": "^5.2.1",
     "globals": "^16.0.0",
-    "jest": "^29.7.0",
+    "jest": "^30.0.5",
     "prettier": "^3.3.3"
   },
   "overrides": {
