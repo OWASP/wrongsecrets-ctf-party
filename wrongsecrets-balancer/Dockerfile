@@ -8,7 +8,7 @@ FROM node:24-alpine AS ui
 RUN mkdir -p /home/app
 WORKDIR /home/app
 COPY ui/package.json ui/package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 COPY ui/ ./
 RUN npm run build
 

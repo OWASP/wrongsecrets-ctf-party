@@ -34,7 +34,7 @@ jobs:
       - name: "Install & Build BalancerUI"
         run: |
           cd wrongsecrets-balancer/ui
-          npm ci
+          npm ci --legacy-peer-deps
           npm run build
       - name: Install Balancer
         run: |
