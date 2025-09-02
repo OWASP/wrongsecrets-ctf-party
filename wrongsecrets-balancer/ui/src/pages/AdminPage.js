@@ -11,7 +11,7 @@ function selectUnit(date) {
   const diffInMs = now.getTime() - date.getTime();
   const diffInSeconds = diffInMs / 1000;
   const absDiffInSeconds = Math.abs(diffInSeconds);
-  
+
   // For FormattedRelativeTime: negative values = past, positive values = future
   if (absDiffInSeconds < 60) {
     return { value: -Math.round(diffInSeconds), unit: 'second' };
