@@ -3,6 +3,9 @@
   "version": "1.1.0",
   "description": "Run Capture the Flags and Security Trainings with OWASP Wrongsecrets (based on multijuicer from Iteratec). Requires node24",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "lint": "eslint src/**",
     "test": "NODE_ENV=test jest src/proxy/proxy.test.js src/teams/teams.test.js"
