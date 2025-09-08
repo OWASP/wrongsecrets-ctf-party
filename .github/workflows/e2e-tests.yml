@@ -1,9 +1,7 @@
 name: 'WrongSecrets CTF Party: E2E Tests'
-
 on:
   pull_request:
     branches: [ main ]
-
 jobs:
   e2e-test:
     name: Run Cypress E2E Tests
@@ -11,27 +9,21 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
       - name: Start Minikube
         uses: medyagh/setup-minikube@latest
         with:
           driver: docker
-          cpus: '4'
-          memory: '11000'
+          cpus: '2'
+          memory: '8000'
           kubernetes-version: 'v1.32.0'
-
       - name: Install Helm
         uses: azure/setup-helm@v4
-
       - name: Install yq
         run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
-
       - name: Run Deployment Script
         run: ./build-and-deploy-minikube.sh
-
       - name: Wait for deployment to be ready
         run: kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
-
       - name: Install Cypress and Run Tests
         uses: cypress-io/github-action@v6
         with:
