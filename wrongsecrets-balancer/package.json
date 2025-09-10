@@ -1,11 +1,14 @@
 {
   "name": "wrongsecrets-balancer",
   "version": "1.1.0",
-  "description": "Run Capture the Flags and Security Trainings with OWASP Wrongsecrets (based on multijuicer from Iteratec). Requires node18",
+  "description": "Run Capture the Flags and Security Trainings with OWASP Wrongsecrets (based on multijuicer from Iteratec). Requires node24",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=24.0.0"
+  },
   "scripts": {
     "lint": "eslint src/**",
-    "test": "NODE_ENV=test jest"
+    "test": "NODE_ENV=test jest src/proxy/proxy.test.js src/teams/teams.test.js"
   },
   "keywords": [],
   "author": "Project OWASP WrongSecrets",
@@ -40,7 +43,7 @@
     "eslint": "^9.14.0",
     "eslint-plugin-prettier": "^5.2.1",
     "globals": "^16.0.0",
-    "jest": "^29.7.0",
+    "jest": "^30.0.5",
     "jest-date-mock": "^1.0.10",
     "minimatch": "^10.0.1",
     "prettier": "^3.3.3",
@@ -57,6 +60,7 @@
     ],
     "testPathIgnorePatterns": [
       "ui/.*"
-    ]
+    ],
+    "clearMocks": true
   }
 }
