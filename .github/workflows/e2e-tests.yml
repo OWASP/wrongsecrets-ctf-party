@@ -1,7 +1,9 @@
 name: 'WrongSecrets CTF Party: E2E Tests'
+
 on:
   pull_request:
     branches: [ main ]
+
 jobs:
   e2e-test:
     name: Run Cypress E2E Tests
@@ -9,6 +11,7 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
       - name: Start Minikube
         uses: medyagh/setup-minikube@latest
         with:
@@ -16,19 +19,27 @@ jobs:
           cpus: '2'
           memory: '8000'
           kubernetes-version: 'v1.32.0'
+
       - name: Install Helm
         uses: azure/setup-helm@v4
+
       - name: Install yq
         run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
-      - name: Run Deployment Script
-        run: ./build-and-deploy-minikube.sh
-      - name: Wait for deployment to be ready
-        run: kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
+
+      # This new step runs the deploy script in the background and then waits
+      - name: Run Deployment Script in Background and Wait
+        run: |
+          ./build-and-deploy-minikube.sh &
+          echo "Deployment script running in background. Waiting for pods..."
+          sleep 30 
+          kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=5m
+
       - name: Install Cypress and Run Tests
         uses: cypress-io/github-action@v6
         with:
           working-directory: wrongsecrets-balancer
+          # The kubectl wait command is now the primary check
           wait-on: 'http://localhost:3000'
-          wait-on-timeout: 300
+          wait-on-timeout: 120 # 2 minutes
           browser: chrome
           headless: true
