@@ -39,6 +39,10 @@ The included scripts have compatibility issues on Windows. A manual deployment i
     ```bash
     minikube start --cpus=4 --memory=11000MB --driver=docker --network-plugin=cni --cni=calico
     ```
+    or if you have less memory available and still want to give it a spin:
+    ```bash
+    minikube start --cpus=4 --memory=6000MB --driver=docker --network-plugin=cni --cni=calico
+    ```
 2.  **Update Helm Repositories:**
     ```bash
     helm repo update
