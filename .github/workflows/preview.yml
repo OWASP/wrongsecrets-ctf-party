@@ -116,9 +116,15 @@ jobs:
 
       - name: Create deployment instructions
         id: instructions
+        env:
+          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+          TAG: ${{ needs.set-tag.outputs.tag }}
+          PR_NUMBER: ${{ github.event.number }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          VALUES_CONTENT: ${{ steps.values.outputs.values }}
         run: |
           # yamllint disable rule:line-length
-          cat > instructions.md << 'EOF'
+          cat > instructions.md << EOF
           ## 🚀 Preview Deployment Ready!
 
           Your pull request has been built and is ready for preview deployment.
@@ -126,55 +132,55 @@ jobs:
 
           ### Container Images Built
 
-          - **Balancer**: `${{ env.IMAGE_PREFIX }}/wrongsecrets-balancer:${{ needs.set-tag.outputs.tag }}`
-          - **Cleaner**: `${{ env.IMAGE_PREFIX }}/cleaner:${{ needs.set-tag.outputs.tag }}`
+          - **Balancer**: \`${IMAGE_PREFIX}/wrongsecrets-balancer:${TAG}\`
+          - **Cleaner**: \`${IMAGE_PREFIX}/cleaner:${TAG}\`
 
           ### Quick Deploy with Helm
 
-          ```bash
+          \`\`\`bash
           # Add the wrongsecrets helm repository
           helm repo add wrongsecrets https://owasp.org/wrongsecrets-ctf-party
           helm repo update
 
           # Deploy with preview images
-          helm install my-preview wrongsecrets/wrongsecrets-ctf-party \
-            --set balancer.repository=${{ env.IMAGE_PREFIX }}/wrongsecrets-balancer \
-            --set balancer.tag=${{ needs.set-tag.outputs.tag }} \
-            --set wrongsecretsCleanup.repository=${{ env.IMAGE_PREFIX }}/cleaner \
-            --set wrongsecretsCleanup.tag=${{ needs.set-tag.outputs.tag }} \
+          helm install my-preview wrongsecrets/wrongsecrets-ctf-party \\
+            --set balancer.repository=${IMAGE_PREFIX}/wrongsecrets-balancer \\
+            --set balancer.tag=${TAG} \\
+            --set wrongsecretsCleanup.repository=${IMAGE_PREFIX}/cleaner \\
+            --set wrongsecretsCleanup.tag=${TAG} \\
             --set imagePullPolicy=Always
 
           # Port forward to access locally
           kubectl port-forward service/wrongsecrets-balancer 3000:3000
-          ```
+          \`\`\`
 
           ### Deploy with Custom Values
 
           <details>
           <summary>Click to see preview-values.yaml</summary>
 
-          ```yaml
-          ${{ steps.values.outputs.values }}
-          ```
+          \`\`\`yaml
+          ${VALUES_CONTENT}
+          \`\`\`
 
           </details>
 
-          ```bash
+          \`\`\`bash
           # Save the above values to preview-values.yaml, then:
-          helm install my-preview wrongsecrets/wrongsecrets-ctf-party \
+          helm install my-preview wrongsecrets/wrongsecrets-ctf-party \\
             -f preview-values.yaml
-          ```
+          \`\`\`
 
           ### Deploy with Local Build Scripts
 
-          ```bash
+          \`\`\`bash
           # Clone this PR
-          git fetch origin pull/${{ github.event.number }}/head:pr-${{ github.event.number }}
-          git checkout pr-${{ github.event.number }}
+          git fetch origin pull/${PR_NUMBER}/head:pr-${PR_NUMBER}
+          git checkout pr-${PR_NUMBER}
 
           # Use the existing deployment script with custom images
           ./build-and-deploy.sh
-          ```
+          \`\`\`
 
           ### Test the Changes
 
@@ -185,18 +191,18 @@ jobs:
           ### Container Registry
 
           The preview images are available at:
-          - https://github.com/${{ github.repository_owner }}/wrongsecrets-ctf-party/pkgs/container/wrongsecrets-balancer
-          - https://github.com/${{ github.repository_owner }}/wrongsecrets-ctf-party/pkgs/container/cleaner
+          - https://github.com/${REPO_OWNER}/wrongsecrets-ctf-party/pkgs/container/wrongsecrets-balancer
+          - https://github.com/${REPO_OWNER}/wrongsecrets-ctf-party/pkgs/container/cleaner
 
           ---
 
-          *This preview was automatically generated for PR #${{ github.event.number }}*
+          *This preview was automatically generated for PR #${PR_NUMBER}*
           EOF
           # yamllint enable rule:line-length
 
-          echo "content<<EOF" >> $GITHUB_OUTPUT
-          cat instructions.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "content<<EOF" >> \$GITHUB_OUTPUT
+          cat instructions.md >> \$GITHUB_OUTPUT
+          echo "EOF" >> \$GITHUB_OUTPUT
 
       - name: Comment on PR
         uses: actions/github-script@v7
