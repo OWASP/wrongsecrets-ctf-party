@@ -35,7 +35,7 @@ app.get('/balancer/dynamics', (req, res) => {
 });
 
 app.use(cookieParser(get('cookieParser.secret')));
-app.use('/balancer', express.json());
+app.use(express.json());
 app.use((req, res, next) => {
   const teamname = extractTeamName(req);
 
@@ -75,5 +75,16 @@ app.use('/balancer/admin', adminRoutes);
 //app.use('/balancer/score-board', scoreBoard);
 
 app.use(proxyRoutes);
+
+// Error handler for Express 5 - catches any unhandled errors
+app.use((err, req, res, next) => {
+  logger.error('Unhandled error:', err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal Server Error',
+  });
+});
 
 module.exports = app;
