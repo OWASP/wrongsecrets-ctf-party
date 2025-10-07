@@ -137,7 +137,7 @@ async function deleteInstance(req, res) {
   }
 }
 
-router.all('*', ensureAdminLogin);
+router.use(ensureAdminLogin);
 router.get('/all', listInstances);
 router.post('/teams/:team/restart', restartInstance);
 router.post('/teams/:team/restartdesktop', restartDesktopInstance);

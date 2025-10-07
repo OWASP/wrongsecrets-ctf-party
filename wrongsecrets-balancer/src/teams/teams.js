@@ -104,7 +104,7 @@ async function validateHMAC(req, res, next) {
   logger.info('validating hmac');
   try {
     const { team } = req.params;
-    const { hmacvalue } = req.body;
+    const { hmacvalue } = req.body || {};
     const validationValue = crypto
       .createHmac('sha256', hmac_key)
       .update(`${team}`, 'utf-8')
@@ -127,7 +127,7 @@ async function validateHMAC(req, res, next) {
  */
 async function validatePassword(req, res, next) {
   const { team } = req.params;
-  const { password } = req.body;
+  const { password } = req.body || {};
   logger.info(
     `checking password for team ${team}, submitted: ${password}, needed: ${accessPassword}`
   );
@@ -159,7 +159,7 @@ async function validatePassword(req, res, next) {
  */
 async function joinIfTeamAlreadyExists(req, res, next) {
   const { team } = req.params;
-  const { passcode } = req.body;
+  const { passcode } = req.body || {};
 
   logger.info(`Checking if team ${team} already has a WrongSecrets Deployment`);
 
