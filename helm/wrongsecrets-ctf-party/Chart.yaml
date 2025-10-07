@@ -36,7 +36,7 @@ appVersion: 1.11.3
 
 dependencies:
   - name: kube-prometheus-stack
-    version: 43.3.1
+    version: 75.18.1
     repository: https://prometheus-community.github.io/helm-charts
 
   - name: loki

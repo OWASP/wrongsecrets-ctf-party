@@ -7,10 +7,10 @@ jobs:
     name: Cleaner
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - name: Install Balancer
         run: |
           cd cleaner
@@ -27,14 +27,14 @@ jobs:
     name: Balancer
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
       - name: "Install & Build BalancerUI"
         run: |
           cd wrongsecrets-balancer/ui
-          npm ci
+          npm ci --legacy-peer-deps
           npm run build
       - name: Install Balancer
         run: |

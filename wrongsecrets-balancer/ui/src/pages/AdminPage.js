@@ -2,9 +2,31 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import DataTable, { createTheme } from 'react-data-table-component';
 import { FormattedRelativeTime, defineMessages, useIntl, FormattedMessage } from 'react-intl';
-import { selectUnit } from '@formatjs/intl-utils';
 
 import { BodyCard, SecondaryButton } from '../Components';
+
+// Custom selectUnit function to replace the deprecated @formatjs/intl-utils version
+function selectUnit(date) {
+  const now = new Date();
+  const diffInMs = now.getTime() - date.getTime();
+  const diffInSeconds = diffInMs / 1000;
+  const absDiffInSeconds = Math.abs(diffInSeconds);
+
+  // For FormattedRelativeTime: negative values = past, positive values = future
+  if (absDiffInSeconds < 60) {
+    return { value: -Math.round(diffInSeconds), unit: 'second' };
+  } else if (absDiffInSeconds < 3600) {
+    return { value: -Math.round(diffInSeconds / 60), unit: 'minute' };
+  } else if (absDiffInSeconds < 86400) {
+    return { value: -Math.round(diffInSeconds / 3600), unit: 'hour' };
+  } else if (absDiffInSeconds < 2629746) {
+    return { value: -Math.round(diffInSeconds / 86400), unit: 'day' };
+  } else if (absDiffInSeconds < 31556952) {
+    return { value: -Math.round(diffInSeconds / 2629746), unit: 'month' };
+  } else {
+    return { value: -Math.round(diffInSeconds / 31556952), unit: 'year' };
+  }
+}
 
 // create react-data-table theme
 createTheme('multijuicer', {

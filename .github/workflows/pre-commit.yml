@@ -21,11 +21,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout git repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - run: gh pr edit ${{ github.event.number }} --remove-label 'pre-commit ci run'
         if: github.event.action == 'labeled' && github.event.label.name == 'pre-commit ci run'
         env:
           GH_TOKEN: ${{ github.token }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: Setup python
         uses: actions/setup-python@v5
         with:
@@ -40,7 +44,7 @@ jobs:
         with:
           terraform_version: 1.1.7
       - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v4
+        uses: terraform-linters/setup-tflint@v5
         with:
           tflint_version: ${{env.TFLINT_VERSION}}
       - name: Setup Terraform docs

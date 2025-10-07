@@ -1,5 +1,7 @@
 # WrongSecrets CTF Party
 
+[![Tweet](https://img.shields.io/badge/-Twitter-%232B90D9?style=for-the-badge&logo=x&logoColor=white)](https://twitter.com/intent/tweet?text=Want%20to%20dive%20into%20secrets%20management%20and%20do%20some%20hunting?%20try%20this&url=https://github.com/OWASP/wrongsecrets-ctf-party&hashtags=secretsmanagement,secrets,hunting,p0wnableapp,OWASP,WrongSecrets) [<img src="https://img.shields.io/badge/-MASTODON-%232B90D9?style=for-the-badge&logo=mastodon&logoColor=white">](https://tootpick.org/#text=Want%20to%20dive%20into%20secrets%20management%20and%20do%20some%20hunting?%20try%20this%0A%0Ahttps://github.com/OWASP/wrongsecrets-ctf-party%20%23secretsmanagement,%20%23secrets,%20%23hunting,%20%23p0wnableapp,%20%23OWASP,%20%23WrongSecrets) [<img src="https://img.shields.io/badge/-BLUESKY-%230085FF?style=for-the-badge&logo=bluesky&logoColor=white">](https://bsky.app/intent/compose?text=Want%20to%20dive%20into%20secrets%20management%20and%20do%20some%20hunting?%20try%20this%0A%0Ahttps://github.com/OWASP/wrongsecrets-ctf-party%20%23secretsmanagement%20%23secrets%20%23hunting%20%23p0wnableapp%20%23OWASP%20%23WrongSecrets) [<img src="https://img.shields.io/badge/-LINKEDIN-0077B5?style=for-the-badge&logo=linkedin&logoColor=white">](https://www.linkedin.com/shareArticle/?url=https://www.github.com/OWASP/wrongsecrets-ctf-party&title=OWASP%20WrongSecrets)
+
 _Powered by MultiJuicer_
 [![CodeQL](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/codeql-analysis.yml)
 [![Pre-commit check](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/pre-commit.yml)
@@ -65,6 +67,8 @@ A 100 contestant game can be played on the AWS, GCP, and Azure setup, which will
 ## Status - Experimental release
 
 This is an experimental release. It showed to work at 6 CTFs already, we just did not complete the documentation and the cleaning up of the Helm chart yet. However: it is working in its basis, and can support a good crowd. Currently, we support using Minikube, AWS EKS, GCP GKE, and Azure AKS (_**Please follow the readme in the folder for each cloud provider if you want to use it, as the guides section is not updated yet**_).
+
+**For Contributors**: Pull requests automatically generate preview deployments with containers published to GitHub Container Registry. See the automated PR comments for deployment instructions.
 
 ## How to use it
 
