@@ -68,7 +68,9 @@ jobs:
         with:
           context: ./${{ matrix.component }}
           file: ./${{ matrix.component }}/Dockerfile
-          push: true
+          # Only push if it's a push to main OR a PR from the same repo (not a fork)
+          # External contributors from forks can't write to the org's container registry
+          push: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
@@ -122,9 +124,66 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
           REPO_OWNER: ${{ github.repository_owner }}
           VALUES_CONTENT: ${{ steps.values.outputs.values }}
+          IS_FORK: ${{ github.event.pull_request.head.repo.full_name != github.repository }}
         run: |
           # yamllint disable rule:line-length
-          cat > instructions.md << EOF
+          if [ "${IS_FORK}" = "true" ]; then
+            cat > instructions.md << EOF
+          ## 🚀 Preview Build Complete!
+
+          Your pull request has been built successfully. However, since this is from a fork, preview images cannot be pushed to the organization's container registry.
+
+          ### Testing Your Changes
+
+          To test your changes, you can build and deploy locally:
+
+          \`\`\`bash
+          # Clone this PR
+          git fetch origin pull/${PR_NUMBER}/head:pr-${PR_NUMBER}
+          git checkout pr-${PR_NUMBER}
+
+          # Build and deploy locally
+          ./build-and-deploy.sh
+
+          # Or for minikube
+          ./build-and-deploy-minikube.sh
+
+          # Port forward to access locally
+          kubectl port-forward service/wrongsecrets-balancer 3000:3000
+          \`\`\`
+
+          ### Alternative: Manual Build
+
+          \`\`\`bash
+          # Build images locally
+          cd wrongsecrets-balancer
+          docker build -t my-wrongsecrets-balancer:test .
+          cd ../cleaner
+          docker build -t my-cleaner:test .
+
+          # Deploy with custom images using Helm
+          helm repo add wrongsecrets https://owasp.org/wrongsecrets-ctf-party
+          helm repo update
+
+          helm install my-preview wrongsecrets/wrongsecrets-ctf-party \\
+            --set balancer.repository=my-wrongsecrets-balancer \\
+            --set balancer.tag=test \\
+            --set wrongsecretsCleanup.repository=my-cleaner \\
+            --set wrongsecretsCleanup.tag=test \\
+            --set balancer.imagePullPolicy=Never \\
+            --set wrongsecretsCleanup.imagePullPolicy=Never
+          \`\`\`
+
+          ### Why Can't Images Be Pushed?
+
+          External contributors don't have write permissions to the organization's GitHub Container Registry. This is a security measure to protect the organization's packages.
+
+          ---
+
+          *This preview was automatically generated for PR #${PR_NUMBER}*
+          EOF
+          else
+            cat > instructions.md << EOF
           ## 🚀 Preview Deployment Ready!
 
           Your pull request has been built and is ready for preview deployment.
@@ -198,6 +257,7 @@ jobs:
 
           *This preview was automatically generated for PR #${PR_NUMBER}*
           EOF
+          fi
           # yamllint enable rule:line-length
 
           echo "content<<EOF" >> $GITHUB_OUTPUT
