@@ -9,6 +9,8 @@ const promClient = require('prom-client');
 const accessPassword = process.env.REACT_APP_ACCESS_PASSWORD;
 const hmac_key = process.env.REACT_APP_CREATE_TEAM_HMAC_KEY || 'hardcodedkey';
 
+const challenge48secret = cryptoRandomString({ length: 32 }).toUpperCase();
+
 const validator = expressJoiValidation.createValidator();
 const k8sEnv = process.env.K8S_ENV || 'k8s';
 const router = express.Router();
@@ -40,6 +42,7 @@ const {
   createRoleBindingForWebtop,
   createNSPsforTeam,
   createK8sChallenge53DeploymentForTeam,
+  createChallenge48SecretForTeam,
 } = require('../kubernetes');
 
 const loginCounter = new promClient.Counter({
@@ -300,6 +303,15 @@ async function createTeam(req, res) {
     logger.error(`Error while creating challenge33 secretsfile ${team}: ${error}`);
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
+
+  try {
+    logger.info(`Creating challenge48 secret for team '${team}'`);
+    await createChallenge48SecretForTeam(team, challenge48secret);
+  } catch (error) {
+    logger.error(`Error while creating challenge48 secret ${team}: ${error}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+
   try {
     logger.info(`Creating WrongSecrets Deployment for team '${team}' with k8s (no cloud)`);
     await createK8sDeploymentForTeam({ team, passcodeHash: hash });
