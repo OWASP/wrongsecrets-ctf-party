@@ -22,7 +22,7 @@
     "bcryptjs": "^3.0.0",
     "cookie": "^1.0.1",
     "cookie-parser": "^1.4.6",
-    "crypto-random-string": "^3.3.1",
+    "crypto-random-string": "^5.0.0",
     "express": "^5.2.0",
     "express-joi-validation": "^6.0.0",
     "google-auth-library": "^10.0.0",
