@@ -8,6 +8,9 @@ const {
   NetworkingV1Api,
 } = require('@kubernetes/client-node');
 
+// Crypto library for sealed secret
+const forge = require('node-forge');
+
 const kc = new KubeConfig();
 kc.loadFromCluster();
 
@@ -129,7 +132,7 @@ const checkSealedSecretsController = async () => {
     const response = await safeApiCall(
       () =>
         k8sAppsApi.readNamespacedDeployment({
-          name: 'ws-sealedsecrets-sealed-secrets',
+          name: 'sealed-secrets-controller',
           namespace: 'kube-system',
         }),
       'Check Sealed Secrets controller'
@@ -252,6 +255,29 @@ const createChallenge33SecretForTeam = async (team) => {
 };
 
 /**
+ * @param {string} value - the value to be sealed
+ */
+const sealSecret = async (value) => {
+  const sealedSecretCert = await getSealedSecretsPublicKey();
+  const cert = forge.pki.certificateFromPem(sealedSecretCert);
+  const key = cert.publicKey;
+  const encrypted = key.encrypt(value, 'RSA-OAEP', {
+    md: forge.md.sha256.create(),
+    mgf1: { md: forge.md.sha1.create() },
+  });
+  return Buffer.from(encrypted, 'binary').toString('base64');
+};
+
+/**
+ * @param {string} team - The team name
+ * @param {string} value - The challenge 48 secret
+ */
+const createChallenge48SecretForTeam = async (team, value) => {
+  const secretValue = await sealSecret(value);
+  createSealedSecretForTeam(team, 'challenge48secret', { secret: secretValue });
+};
+
+/**
  * Create a SealedSecret in the team's namespace for secure secret management
  * @param {string} team - The team name
  * @param {string} secretName - The name for the SealedSecret
@@ -259,8 +285,7 @@ const createChallenge33SecretForTeam = async (team) => {
  */
 const createSealedSecretForTeam = async (team, secretName, secretData) => {
   try {
-    // Note: In production, you would seal the data using kubeseal CLI or the controller's public key
-    // For this example, we're creating a template that would need to be sealed externally
+    logger.info(`Secret name: ${secretName}, Secret data: ${JSON.stringify(secretData)}`);
     const sealedSecretManifest = {
       apiVersion: 'bitnami.com/v1alpha1',
       kind: 'SealedSecret',
@@ -272,6 +297,9 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
           'app.kubernetes.io/instance': `wrongsecrets-${team}`,
           'app.kubernetes.io/part-of': 'wrongsecrets-ctf-party',
         },
+        annotations: {
+          'sealedsecrets.bitnami.com/namespace-wide': 'true',
+        },
       },
       spec: {
         template: {
@@ -282,10 +310,13 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
               'app.kubernetes.io/name': 'wrongsecrets',
               'app.kubernetes.io/instance': `wrongsecrets-${team}`,
             },
+            annotations: {
+              'sealedsecrets.bitnami.com/namespace-wide': 'true',
+            },
           },
           type: 'Opaque',
         },
-        encryptedData: secretData, // This should be pre-sealed data
+        encryptedData: secretData,
       },
     };
 
@@ -306,30 +337,21 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
 };
 
 /**
- * Create a sealed secret for challenge 33 specific to the team
- * TODO: REPLACE WITH CHALLENGE 53 FOR ACTUAL SEALED SECRET
- * @param {string} team - The team name
- */
-const createSealedChallenge33SecretForTeam = async (team) => {
-  const secretName = 'challenge33';
-  const secretData = {
-    // Note: These values should be sealed using kubeseal before deployment
-    answer: challenge33Value || 'default-challenge33-value',
-  };
-
-  return createSealedSecretForTeam(team, secretName, secretData);
-};
-
-/**
  * Get the Sealed Secrets controller public key for sealing secrets
  */
 const getSealedSecretsPublicKey = async () => {
   try {
+    const list = await k8sCoreApi.listNamespacedSecret({
+      namespace: 'kube-system',
+      labelSelector: 'sealedsecrets.bitnami.com/sealed-secrets-key=active',
+      limit: 1,
+    });
+    const secretName = list.items.map((secret) => secret.metadata.name).find((name) => name);
     const response = await k8sCoreApi.readNamespacedSecret({
-      name: 'sealed-secrets-key',
+      name: secretName,
       namespace: 'kube-system',
     });
-    return response.data['tls.crt'];
+    return Buffer.from(response.data['tls.crt'], 'base64').toString('utf-8');
   } catch (error) {
     logger.error('Failed to get Sealed Secrets public key:', error.body || error);
     throw new Error(`Failed to get public key: ${error.message}`);
@@ -557,14 +579,6 @@ const deleteChallenge53DeploymentForTeam = async (team) => {
  * Enhanced deployment creation with SealedSecret integration
  */
 const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
-  // Check if we should use SealedSecrets
-  const useSealedSecrets = await checkSealedSecretsController();
-
-  if (useSealedSecrets) {
-    // Create sealed secrets for the team
-    await createSealedChallenge33SecretForTeam(team);
-  }
-
   const deploymentWrongSecretsConfig = {
     metadata: {
       namespace: `t-${team}`,
@@ -2517,13 +2531,13 @@ module.exports = {
   createSecretsfileForTeam,
   createChallenge33SecretForTeam,
   createSealedSecretForTeam,
-  createSealedChallenge33SecretForTeam,
   getSealedSecretsPublicKey,
   createNameSpaceForTeam,
   createK8sDeploymentForTeam,
   createK8sChallenge53DeploymentForTeam,
   getChallenge53InstanceForTeam,
   deleteChallenge53DeploymentForTeam,
+  createChallenge48SecretForTeam,
 
   // AWS functions
   createAWSSecretsProviderForTeam,
