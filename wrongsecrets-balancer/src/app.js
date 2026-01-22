@@ -9,6 +9,7 @@ const app = express();
 
 const teamRoutes = require('./teams/teams');
 const adminRoutes = require('./admin/admin');
+const apiRoutes = require('./api/api');
 const proxyRoutes = require('./proxy/proxy');
 //const scoreBoard = require('./score-board/score-board'); //the sscoreboard requires a progress watchdog in place
 
@@ -74,6 +75,7 @@ app.get('/balancer/admin', (req, res) => {
 app.use('/balancer/admin', adminRoutes);
 //app.use('/balancer/score-board', scoreBoard);
 
+app.use('/api', apiRoutes);
 app.use(proxyRoutes);
 
 // Error handler for Express 5 - catches any unhandled errors
