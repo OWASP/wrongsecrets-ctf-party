@@ -267,19 +267,19 @@ const getChallengeData = () => {
 async function getChallenges(req, res) {
   try {
     logger.info('Retrieving challenge data for CSV export');
-    
+
     const challengeData = getChallengeData();
-    
+
     // Support both JSON and CSV formats
     const format = req.query.format || 'json';
-    
+
     if (format === 'csv') {
       // Generate CSV format
       const csvHeader = 'Challenge,Name,Description,Difficulty,Answer,Category\n';
-      const csvRows = challengeData.data.map(challenge => 
+      const csvRows = challengeData.data.map(challenge =>
         `"${challenge.key}","${challenge.name}","${challenge.description}",${challenge.difficulty},"${challenge.answer}","${challenge.category}"`
       ).join('\n');
-      
+
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="challenges.csv"');
       res.send(csvHeader + csvRows);
