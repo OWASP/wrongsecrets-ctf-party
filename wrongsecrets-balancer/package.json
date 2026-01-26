@@ -30,7 +30,7 @@
     "http-proxy": "^1.18.1",
     "http-proxy-middleware": "^3.0.2",
     "joi": "^17.13.3",
-    "lodash": "^4.17.21",
+    "lodash": "^4.17.23",
     "minimatch": "^10.0.1",
     "on-finished": "^2.4.1",
     "prom-client": "^15.1.3",
