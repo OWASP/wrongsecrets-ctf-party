@@ -1913,7 +1913,7 @@ const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
           containers: [
             {
               name: 'virtualdesktop',
-              image: `jeroenwillemsen/wrongsecrets-desktop-k8s:${wrongSecretsDekstopTag}`,
+             image: `lscr.io/linuxserver/webtop:${wrongSecretsDekstopTag}`,
               imagePullPolicy: get('virtualdesktop.imagePullPolicy'),
               resources: {
                 requests: {
@@ -1946,7 +1946,7 @@ const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
               envFrom: get('virtualdesktop.envFrom'),
               ports: [
                 {
-                  containerPort: 3000,
+                  containerPort: 6080,
                 },
               ],
               volumeMounts: [
