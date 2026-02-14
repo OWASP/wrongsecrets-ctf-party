@@ -209,7 +209,7 @@ virtualdesktop:
   maxInstances: 500
   # -- Wrongsecrets Image to use
   image: jeroenwillemsen/wrongsecrets-desktop-k8s
-  tag: 1.12.0
+  tag: 1.12.8
   repository: commjoenie/wrongSecrets
   resources:
     request:
