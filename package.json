@@ -3,7 +3,7 @@
     "node": ">=24.0.0"
   },
   "devDependencies": {
-    "@commitlint/config-conventional": "^19.5.0"
+    "@commitlint/config-conventional": "^20.0.0"
   },
   "dependencies": {
     "eslint": "^9.14.0"
