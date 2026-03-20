@@ -173,6 +173,22 @@ Then open a browser and go to [localhost:3000](http:localhost:3000) and have fun
 
 See [production notes](./guides/production-notes/production-notes.md) for a checklist of values you'll likely need to configure before using Wrongsecrets-ctf-party in proper events.
 
+### Generating CTFd Challenge Archives (juice-shop-ctf-cli v12 on Node.js 24)
+
+Use `juice-shop-ctf-cli@12` with `Node.js 24`.
+
+If you use `juice-shop-ctf-cli@12` locally, do not point it at `http://localhost:3000` unless your request includes a valid balancer team cookie.
+
+Without that cookie, `/api/Challenges` is redirected to `/balancer/` and returns HTML, which causes errors like:
+
+```text
+Unexpected token '<', "<!doctype "... is not valid JSON
+```
+
+For local challenge archive generation, create or join a team first and then use a direct URL to that team's WrongSecrets service (for example via `kubectl port-forward -n t-<team> svc/t-<team>-wrongsecrets 18080:8080` and then `http://localhost:18080`).
+
+See the cloud setup READMEs for a full command example.
+
 ### Customizing the Setup
 
 You got some options on how to setup the stack, with some option to customize the WrongSecrets and Virtual desktop instances to your own liking.
