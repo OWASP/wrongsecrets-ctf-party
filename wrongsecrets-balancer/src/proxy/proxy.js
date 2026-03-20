@@ -10,6 +10,26 @@ const {
   updateLastRequestTimestampForTeam,
 } = require('../kubernetes');
 
+proxy.on('proxyReq', (proxyReq, req) => {
+  if (!req.body || Object.keys(req.body).length === 0) {
+    return;
+  }
+
+  const method = (req.method || '').toUpperCase();
+  if (!['POST', 'PUT', 'PATCH'].includes(method)) {
+    return;
+  }
+
+  const contentType = proxyReq.getHeader('Content-Type') || req.get('content-type') || '';
+  if (!String(contentType).includes('application/json')) {
+    return;
+  }
+
+  const bodyData = JSON.stringify(req.body);
+  proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+  proxyReq.write(bodyData);
+});
+
 const router = express.Router();
 
 /**
@@ -161,6 +181,11 @@ function proxyTrafficToJuiceShop(req, res) {
     return res.redirect('/balancer/');
   }
   const currentReferrerForDesktop = '/?desktop';
+  const isMcpPath =
+    req.path === '/mcp' ||
+    req.path.startsWith('/mcp/') ||
+    req.path === '/balancer/mcp' ||
+    req.path.startsWith('/balancer/mcp/');
   logger.debug(
     `Proxying request ${req.method.toLocaleUpperCase()} ${
       req.path
@@ -186,11 +211,19 @@ function proxyTrafficToJuiceShop(req, res) {
     };
   } else {
     target = {
-      target: `http://${teamname}-wrongsecrets.${teamname}.svc:8080`,
+      target: `http://${teamname}-wrongsecrets.${teamname}.svc:${isMcpPath ? 8090 : 8080}`,
       ws: true,
     };
   }
   logger.info(`we got ${teamname} requesting ${target.target}`);
+
+  // Support same-origin MCP calls from the balancer UI by rewriting
+  // /balancer/mcp[/...] to /mcp[/...] before forwarding to wrongsecrets.
+  if (req.url === '/balancer/mcp' || req.url.startsWith('/balancer/mcp?')) {
+    req.url = req.url.replace('/balancer/mcp', '/mcp');
+  } else if (req.url.startsWith('/balancer/mcp/')) {
+    req.url = req.url.replace('/balancer/mcp/', '/mcp/');
+  }
 
   proxy.web(req, res, target, (error) => {
     logger.warn(`Proxy fail '${error.code}' for: ${req.method.toLocaleUpperCase()} ${req.path}`);

@@ -1647,6 +1647,37 @@ const createNSPsforTeam = async (team) => {
     },
   };
 
+  const nsAllowIntraNamespace = {
+    apiVersion: 'networking.k8s.io/v1',
+    kind: 'NetworkPolicy',
+    metadata: {
+      name: 'allow-intra-namespace-traffic',
+      namespace: `t-${team}`,
+    },
+    spec: {
+      podSelector: {},
+      policyTypes: ['Ingress', 'Egress'],
+      ingress: [
+        {
+          from: [
+            {
+              podSelector: {},
+            },
+          ],
+        },
+      ],
+      egress: [
+        {
+          to: [
+            {
+              podSelector: {},
+            },
+          ],
+        },
+      ],
+    },
+  };
+
   const broaderallow = {
     apiVersion: 'networking.k8s.io/v1',
     kind: 'NetworkPolicy',
@@ -1731,6 +1762,12 @@ const createNSPsforTeam = async (team) => {
   logger.info(`applying nsAllowOnlyDNS for ${team}`);
   await k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowOnlyDNS })
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
+  logger.info(`applying nsAllowIntraNamespace for ${team}`);
+  await k8sNetworkingApi
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowIntraNamespace })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -2025,7 +2062,14 @@ const createServiceForTeam = async (teamname) => {
           },
           ports: [
             {
+              name: 'http',
               port: 8080,
+              targetPort: 8080,
+            },
+            {
+              name: 'mcp',
+              port: 8090,
+              targetPort: 8090,
             },
           ],
         },
