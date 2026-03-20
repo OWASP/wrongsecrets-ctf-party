@@ -167,6 +167,34 @@ test('should redirect to /balancer/ when the instance is not existing', async ()
     });
 });
 
+test('should rewrite /balancer/mcp to /mcp before proxying', async () => {
+  __mockProxy.web.mockClear();
+
+  await request(app).post('/balancer/mcp').set('Cookie', ['balancer=t-team42']).send().expect(200);
+
+  expect(__mockProxy.web).toHaveBeenCalledTimes(1);
+  const proxiedReq = __mockProxy.web.mock.calls[0][0];
+  const target = __mockProxy.web.mock.calls[0][2];
+
+  expect(proxiedReq.url).toBe('/mcp');
+  expect(target.target).toBe('http://t-team42-wrongsecrets.t-team42.svc:8090');
+});
+
+test('should forward json body for /balancer/mcp requests', async () => {
+  __mockProxy.web.mockClear();
+
+  const payload = { jsonrpc: '2.0', id: 1, method: 'tools/list' };
+
+  await request(app)
+    .post('/balancer/mcp')
+    .set('Cookie', ['balancer=t-team42'])
+    .send(payload)
+    .expect(200);
+
+  const proxiedReq = __mockProxy.web.mock.calls[0][0];
+  expect(proxiedReq.body).toEqual(payload);
+});
+
 test('should attach websocket upgrade handler only once', () => {
   const listeners = {};
   const server = {
