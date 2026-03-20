@@ -75,9 +75,42 @@ You can use the [Juiceshop CTF CLI](https://github.com/juice-shop/juice-shop-ctf
 Follow the following steps:
 
 ```shell
-    npm install -g juice-shop-ctf-cli@10.0.1
-    juice-shop-ctf #choose ctfd and https://wrongsecrets-ctf.herokuapp.com as domain. No trailing slash! The key is 'test', by default feel free to enable hints. We do not support snippets or links/urls to code or hints.
+  # Use Node.js 24 for juice-shop-ctf-cli v12
+  nvm install 24 && nvm use 24
+  npm install -g juice-shop-ctf-cli@12
+    juice-shop-ctf
 ```
+
+When you run the CLI, keep in mind:
+
+- `http://localhost:3000` points to the balancer UI, not directly to a WrongSecrets instance.
+- Without a team cookie, requests to `/api/Challenges` are redirected to `/balancer/` (HTML), which causes JSON parsing errors like `Unexpected token '<'`.
+- For local generation, create a team first and then target that team's WrongSecrets service directly.
+
+Example local workflow:
+
+```shell
+TEAM=ctfgen$RANDOM
+HMAC=$(printf "%s" "$TEAM" | openssl dgst -sha256 -hmac hardcodedkey | awk '{print $2}')
+
+# Create or join the team via balancer
+curl -sS -H 'Content-Type: application/json' \
+  -d "{\"hmacvalue\":\"$HMAC\"}" \
+  "http://localhost:3000/balancer/teams/$TEAM/join"
+
+# Wait for WrongSecrets instance readiness
+curl -sS "http://localhost:3000/balancer/teams/$TEAM/wait-till-ready"
+
+# Port-forward directly to the team service and keep this running
+kubectl -n "t-$TEAM" port-forward "svc/t-$TEAM-wrongsecrets" 18080:8080
+```
+
+Then run `juice-shop-ctf` and use:
+
+- `CTF framework`: `CTFd`
+- `Juice Shop URL to retrieve challenges`: `http://localhost:18080`
+- `ctf.key / secret key`: your actual WrongSecrets CTF key (for default installs this is often `test`)
+- `hints`: your preference
 
 Now visit the CTFd instance and setup your CTF. To test things locally before setting up a load balancer/ingress, you can use `kubectl port-forward -n ctfd $(kubectl get pods --namespace ctfd -l "app.kubernetes.io/name=ctfd,app.kubernetes.io/instance=ctfd" -o jsonpath="{.items[0].metadata.name}") 8000:8000` and go to `localhost:8000` to visit CTFd.
 
