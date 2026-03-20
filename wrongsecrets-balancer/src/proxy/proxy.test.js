@@ -3,8 +3,10 @@ jest.mock('http-proxy');
 
 const { advanceBy, advanceTo, clear } = require('jest-date-mock');
 const request = require('supertest');
+const { __mockProxy } = require('http-proxy');
 
 const app = require('../app');
+const { attachUpgradeHandler } = require('./proxy');
 const {
   getJuiceShopInstanceForTeamname,
   updateLastRequestTimestampForTeam,
@@ -18,6 +20,8 @@ beforeEach(() => {
   clear();
   getJuiceShopInstanceForTeamname.mockClear();
   updateLastRequestTimestampForTeam.mockClear();
+  __mockProxy.web.mockClear();
+  __mockProxy.ws.mockClear();
 });
 
 test('/balancer/ should return the balancer ui', async () => {
@@ -161,4 +165,72 @@ test('should redirect to /balancer/ when the instance is not existing', async ()
         '/balancer/?msg=instance-not-found&teamname=missing-instance'
       );
     });
+});
+
+test('should attach websocket upgrade handler only once', () => {
+  const listeners = {};
+  const server = {
+    on: jest.fn((event, handler) => {
+      listeners[event] = handler;
+    }),
+  };
+
+  attachUpgradeHandler(server);
+  attachUpgradeHandler(server);
+
+  expect(server.on).toHaveBeenCalledTimes(1);
+  expect(listeners.upgrade).toBeDefined();
+});
+
+test('should proxy /websockets upgrades to virtualdesktop with valid team cookie', () => {
+  const listeners = {};
+  const server = {
+    on: jest.fn((event, handler) => {
+      listeners[event] = handler;
+    }),
+  };
+
+  attachUpgradeHandler(server);
+
+  const socket = { destroy: jest.fn() };
+  const req = {
+    url: '/websockets',
+    headers: {
+      cookie: 'balancer=t-team42',
+    },
+  };
+  const head = Buffer.from('');
+
+  listeners.upgrade(req, socket, head);
+
+  expect(socket.destroy).not.toHaveBeenCalled();
+  expect(__mockProxy.ws).toHaveBeenCalledTimes(1);
+  expect(__mockProxy.ws).toHaveBeenCalledWith(req, socket, head, {
+    target: 'ws://t-team42-virtualdesktop.t-team42.svc:8080',
+    ws: true,
+  });
+});
+
+test('should destroy socket for unsupported websocket upgrade paths', () => {
+  const listeners = {};
+  const server = {
+    on: jest.fn((event, handler) => {
+      listeners[event] = handler;
+    }),
+  };
+
+  attachUpgradeHandler(server);
+
+  const socket = { destroy: jest.fn() };
+  const req = {
+    url: '/unsupported-path',
+    headers: {
+      cookie: 'balancer=t-team42',
+    },
+  };
+
+  listeners.upgrade(req, socket, Buffer.from(''));
+
+  expect(socket.destroy).toHaveBeenCalledTimes(1);
+  expect(__mockProxy.ws).not.toHaveBeenCalled();
 });
