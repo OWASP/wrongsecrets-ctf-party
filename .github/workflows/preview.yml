@@ -64,7 +64,7 @@ jobs:
             type=raw,value=${{ needs.set-tag.outputs.tag }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./${{ matrix.component }}
           file: ./${{ matrix.component }}/Dockerfile
