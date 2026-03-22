@@ -301,7 +301,7 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
     return response;
   } catch (error) {
     logger.error(`Failed to create SealedSecret for team ${team}:`, error.body || error);
-    throw new Error(`Failed to create SealedSecret: ${error.message}`);
+    throw new Error(`Failed to create SealedSecret: ${error.message}`, { cause: error });
   }
 };
 
@@ -332,7 +332,7 @@ const getSealedSecretsPublicKey = async () => {
     return response.data['tls.crt'];
   } catch (error) {
     logger.error('Failed to get Sealed Secrets public key:', error.body || error);
-    throw new Error(`Failed to get public key: ${error.message}`);
+    throw new Error(`Failed to get public key: ${error.message}`, { cause: error });
   }
 };
 
@@ -492,7 +492,7 @@ const createK8sChallenge53DeploymentForTeam = async ({ team, passcodeHash }) => 
     return response;
   } catch (error) {
     logger.error(`Failed to create Challenge 53 deployment for team ${team}:`, error.message);
-    throw new Error(`Failed to create Challenge 53 deployment: ${error.message}`);
+    throw new Error(`Failed to create Challenge 53 deployment: ${error.message}`, { cause: error });
   }
 };
 
@@ -549,7 +549,7 @@ const deleteChallenge53DeploymentForTeam = async (team) => {
       return;
     }
     logger.error(`Failed to delete Challenge 53 deployment for team ${team}:`, error.message);
-    throw new Error(`Failed to delete Challenge 53 deployment: ${error.message}`);
+    throw new Error(`Failed to delete Challenge 53 deployment: ${error.message}`, { cause: error });
   }
 };
 
@@ -1334,7 +1334,7 @@ const getKubernetesEndpointToWhitelist = async () => {
     return subsets.flatMap((subset) => subset.addresses.map((address) => address.ip));
   } catch (error) {
     logger.error('Failed to get Kubernetes endpoints:', error.message);
-    throw new Error(`Failed to get Kubernetes endpoints: ${error.message}`);
+    throw new Error(`Failed to get Kubernetes endpoints: ${error.message}`, { cause: error });
   }
 };
 
