@@ -628,7 +628,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
                 {
                   name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                  value: get('wrongsecrets.ctfKey'),
                 },
                 {
                   name: 'K8S_ENV',
@@ -877,7 +877,7 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
                 {
                   name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                  value: get('wrongsecrets.ctfKey'),
                 },
                 {
                   name: 'K8S_ENV',
@@ -1137,7 +1137,7 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
                 {
                   name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                  value: get('wrongsecrets.ctfKey'),
                 },
                 {
                   name: 'K8S_ENV',
@@ -2401,7 +2401,7 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
                 {
                   name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                  value: get('wrongsecrets.ctfKey'),
                 },
                 {
                   name: 'K8S_ENV',
