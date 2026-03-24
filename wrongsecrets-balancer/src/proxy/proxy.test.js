@@ -239,6 +239,60 @@ test('should proxy /websockets upgrades to virtualdesktop with valid team cookie
   });
 });
 
+test('should proxy /socket.io upgrades to virtualdesktop with valid team cookie', () => {
+  const listeners = {};
+  const server = {
+    on: jest.fn((event, handler) => {
+      listeners[event] = handler;
+    }),
+  };
+
+  attachUpgradeHandler(server);
+
+  const socket = { destroy: jest.fn() };
+  const req = {
+    url: '/socket.io/?EIO=4&transport=websocket',
+    headers: {
+      cookie: 'balancer=t-team42',
+    },
+  };
+  const head = Buffer.from('');
+
+  listeners.upgrade(req, socket, head);
+
+  expect(socket.destroy).not.toHaveBeenCalled();
+  expect(__mockProxy.ws).toHaveBeenCalledTimes(1);
+  expect(__mockProxy.ws).toHaveBeenCalledWith(req, socket, head, {
+    target: 'ws://t-team42-virtualdesktop.t-team42.svc:8080',
+    ws: true,
+  });
+});
+
+test('should proxy websocket upgrade when desktop referer is present', () => {
+  const listeners = {};
+  const server = {
+    on: jest.fn((event, handler) => {
+      listeners[event] = handler;
+    }),
+  };
+
+  attachUpgradeHandler(server);
+
+  const socket = { destroy: jest.fn() };
+  const req = {
+    url: '/unlisted-websocket-route',
+    headers: {
+      cookie: 'balancer=t-team42',
+      referer: 'http://localhost:3000/?desktop',
+    },
+  };
+
+  listeners.upgrade(req, socket, Buffer.from(''));
+
+  expect(socket.destroy).not.toHaveBeenCalled();
+  expect(__mockProxy.ws).toHaveBeenCalledTimes(1);
+});
+
 test('should destroy socket for unsupported websocket upgrade paths', () => {
   const listeners = {};
   const server = {

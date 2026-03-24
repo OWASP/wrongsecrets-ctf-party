@@ -74,13 +74,25 @@ function shouldProxyUpgradeToVirtualDesktop(requestUrl) {
     pathname.startsWith('/guaclite/') ||
     pathname === '/websockets' ||
     pathname.startsWith('/websockets/') ||
+    pathname === '/socket.io' ||
+    pathname === '/socket.io/' ||
+    pathname.startsWith('/socket.io/') ||
     pathname === '/files/socket.io' ||
     pathname === '/files/socket.io/'
   );
 }
 
+function requestLooksLikeDesktopUpgrade(req) {
+  if (shouldProxyUpgradeToVirtualDesktop(req.url || '/')) {
+    return true;
+  }
+
+  const referer = req.headers?.referer || req.headers?.Referer || '';
+  return String(referer).includes('/?desktop');
+}
+
 function handleUpgradeRequest(req, socket, head) {
-  if (!shouldProxyUpgradeToVirtualDesktop(req.url || '/')) {
+  if (!requestLooksLikeDesktopUpgrade(req)) {
     socket.destroy();
     return;
   }
