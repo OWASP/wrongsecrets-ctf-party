@@ -301,7 +301,7 @@ const createSealedSecretForTeam = async (team, secretName, secretData) => {
     return response;
   } catch (error) {
     logger.error(`Failed to create SealedSecret for team ${team}:`, error.body || error);
-    throw new Error(`Failed to create SealedSecret: ${error.message}`);
+    throw new Error(`Failed to create SealedSecret: ${error.message}`, { cause: error });
   }
 };
 
@@ -332,7 +332,7 @@ const getSealedSecretsPublicKey = async () => {
     return response.data['tls.crt'];
   } catch (error) {
     logger.error('Failed to get Sealed Secrets public key:', error.body || error);
-    throw new Error(`Failed to get public key: ${error.message}`);
+    throw new Error(`Failed to get public key: ${error.message}`, { cause: error });
   }
 };
 
@@ -492,7 +492,7 @@ const createK8sChallenge53DeploymentForTeam = async ({ team, passcodeHash }) => 
     return response;
   } catch (error) {
     logger.error(`Failed to create Challenge 53 deployment for team ${team}:`, error.message);
-    throw new Error(`Failed to create Challenge 53 deployment: ${error.message}`);
+    throw new Error(`Failed to create Challenge 53 deployment: ${error.message}`, { cause: error });
   }
 };
 
@@ -549,7 +549,7 @@ const deleteChallenge53DeploymentForTeam = async (team) => {
       return;
     }
     logger.error(`Failed to delete Challenge 53 deployment for team ${team}:`, error.message);
-    throw new Error(`Failed to delete Challenge 53 deployment: ${error.message}`);
+    throw new Error(`Failed to delete Challenge 53 deployment: ${error.message}`, { cause: error });
   }
 };
 
@@ -628,7 +628,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
                 {
                   name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                  value: get('wrongsecrets.ctfKey'),
                 },
                 {
                   name: 'K8S_ENV',
@@ -877,7 +877,7 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
                 {
                   name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                  value: get('wrongsecrets.ctfKey'),
                 },
                 {
                   name: 'K8S_ENV',
@@ -1137,7 +1137,7 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
                 {
                   name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                  value: get('wrongsecrets.ctfKey'),
                 },
                 {
                   name: 'K8S_ENV',
@@ -1334,7 +1334,7 @@ const getKubernetesEndpointToWhitelist = async () => {
     return subsets.flatMap((subset) => subset.addresses.map((address) => address.ip));
   } catch (error) {
     logger.error('Failed to get Kubernetes endpoints:', error.message);
-    throw new Error(`Failed to get Kubernetes endpoints: ${error.message}`);
+    throw new Error(`Failed to get Kubernetes endpoints: ${error.message}`, { cause: error });
   }
 };
 
@@ -1647,6 +1647,37 @@ const createNSPsforTeam = async (team) => {
     },
   };
 
+  const nsAllowIntraNamespace = {
+    apiVersion: 'networking.k8s.io/v1',
+    kind: 'NetworkPolicy',
+    metadata: {
+      name: 'allow-intra-namespace-traffic',
+      namespace: `t-${team}`,
+    },
+    spec: {
+      podSelector: {},
+      policyTypes: ['Ingress', 'Egress'],
+      ingress: [
+        {
+          from: [
+            {
+              podSelector: {},
+            },
+          ],
+        },
+      ],
+      egress: [
+        {
+          to: [
+            {
+              podSelector: {},
+            },
+          ],
+        },
+      ],
+    },
+  };
+
   const broaderallow = {
     apiVersion: 'networking.k8s.io/v1',
     kind: 'NetworkPolicy',
@@ -1731,6 +1762,12 @@ const createNSPsforTeam = async (team) => {
   logger.info(`applying nsAllowOnlyDNS for ${team}`);
   await k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowOnlyDNS })
+    .catch((error) => {
+      throw new Error(JSON.stringify(error));
+    });
+  logger.info(`applying nsAllowIntraNamespace for ${team}`);
+  await k8sNetworkingApi
+    .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowIntraNamespace })
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -2025,7 +2062,14 @@ const createServiceForTeam = async (teamname) => {
           },
           ports: [
             {
+              name: 'http',
               port: 8080,
+              targetPort: 8080,
+            },
+            {
+              name: 'mcp',
+              port: 8090,
+              targetPort: 8090,
             },
           ],
         },
@@ -2357,7 +2401,7 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
                 {
                   name: 'ctf_key',
-                  value: 'notarealkeyyouknowbutyoumightgetflags',
+                  value: get('wrongsecrets.ctfKey'),
                 },
                 {
                   name: 'K8S_ENV',

@@ -10,6 +10,26 @@ const {
   updateLastRequestTimestampForTeam,
 } = require('../kubernetes');
 
+proxy.on('proxyReq', (proxyReq, req) => {
+  if (!req.body || Object.keys(req.body).length === 0) {
+    return;
+  }
+
+  const method = (req.method || '').toUpperCase();
+  if (!['POST', 'PUT', 'PATCH'].includes(method)) {
+    return;
+  }
+
+  const contentType = proxyReq.getHeader('Content-Type') || req.get('content-type') || '';
+  if (!String(contentType).includes('application/json')) {
+    return;
+  }
+
+  const bodyData = JSON.stringify(req.body);
+  proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+  proxyReq.write(bodyData);
+});
+
 const router = express.Router();
 
 /**
@@ -39,6 +59,67 @@ function redirectAdminTrafficToBalancerPage(req, res, next) {
 }
 
 const connectionCache = new Map();
+
+function isValidTeamname(teamname) {
+  if (typeof teamname !== 'string' || teamname.length === 0) {
+    return false;
+  }
+  return /^[a-z0-9]([-a-z0-9])+[a-z0-9]$/i.test(teamname);
+}
+
+function shouldProxyUpgradeToVirtualDesktop(requestUrl) {
+  const { pathname } = new URL(requestUrl, 'http://localhost');
+  return (
+    pathname === '/guaclite' ||
+    pathname.startsWith('/guaclite/') ||
+    pathname === '/websockets' ||
+    pathname.startsWith('/websockets/') ||
+    pathname === '/socket.io' ||
+    pathname === '/socket.io/' ||
+    pathname.startsWith('/socket.io/') ||
+    pathname === '/files/socket.io' ||
+    pathname === '/files/socket.io/'
+  );
+}
+
+function requestLooksLikeDesktopUpgrade(req) {
+  if (shouldProxyUpgradeToVirtualDesktop(req.url || '/')) {
+    return true;
+  }
+
+  const referer = req.headers?.referer || req.headers?.Referer || '';
+  return String(referer).includes('/?desktop');
+}
+
+function handleUpgradeRequest(req, socket, head) {
+  if (!requestLooksLikeDesktopUpgrade(req)) {
+    socket.destroy();
+    return;
+  }
+
+  cookieParser(get('cookieParser.secret'))(req, {}, () => {});
+  const upgradeTeamname = extractTeamName(req);
+
+  if (!isValidTeamname(upgradeTeamname)) {
+    logger.info(`Got malformed teamname during websocket upgrade: ${upgradeTeamname}`);
+    socket.destroy();
+    return;
+  }
+
+  logger.info(`Proxying websocket upgrade request for ${req.url} with team ${upgradeTeamname}`);
+  proxy.ws(req, socket, head, {
+    target: `ws://${upgradeTeamname}-virtualdesktop.${upgradeTeamname}.svc:8080`,
+    ws: true,
+  });
+}
+
+function attachUpgradeHandler(server) {
+  if (server.__wrongsecretsUpgradeHandlerAttached) {
+    return;
+  }
+  server.__wrongsecretsUpgradeHandlerAttached = true;
+  server.on('upgrade', handleUpgradeRequest);
+}
 
 /**
  * Checks at most every 10sec if the deployment the traffic should go to is ready.
@@ -112,6 +193,11 @@ function proxyTrafficToJuiceShop(req, res) {
     return res.redirect('/balancer/');
   }
   const currentReferrerForDesktop = '/?desktop';
+  const isMcpPath =
+    req.path === '/mcp' ||
+    req.path.startsWith('/mcp/') ||
+    req.path === '/balancer/mcp' ||
+    req.path.startsWith('/balancer/mcp/');
   logger.debug(
     `Proxying request ${req.method.toLocaleUpperCase()} ${
       req.path
@@ -137,57 +223,29 @@ function proxyTrafficToJuiceShop(req, res) {
     };
   } else {
     target = {
-      target: `http://${teamname}-wrongsecrets.${teamname}.svc:8080`,
+      target: `http://${teamname}-wrongsecrets.${teamname}.svc:${isMcpPath ? 8090 : 8080}`,
       ws: true,
     };
   }
   logger.info(`we got ${teamname} requesting ${target.target}`);
 
-  if (req.path === '/guaclite') {
-    let server = res.socket.server;
-    logger.info('putting ws through for /quaclite');
-    server.on('upgrade', function (req, socket, head) {
-      cookieParser(get('cookieParser.secret'))(req, null, () => {});
-
-      // logger.info(
-      //   `we have cookies: ${JSON.stringify(req.cookies)} and  ${JSON.stringify(req.signedCookies)}`
-      // );
-      const upgradeTeamname = extractTeamName(req);
-      const regex = new RegExp('^[a-z0-9]([-a-z0-9])+[a-z0-9]$', 'i');
-      if (!regex.test(upgradeTeamname)) {
-        logger.info(`Got malformed teamname: ${upgradeTeamname}s`);
-        return res.redirect('/balancer/');
-      }
-      logger.info(`proxying upgrade request for: ${req.url} with team ${upgradeTeamname}`);
-      proxy.ws(req, socket, head, {
-        target: `ws://${upgradeTeamname}-virtualdesktop.${upgradeTeamname}.svc:8080`,
-        ws: true,
-      });
-    });
-    server.on('connect', function (req, socket, head) {
-      const connectTeamname = extractTeamName(req);
-      const regex = new RegExp('^[a-z0-9]([-a-z0-9])+[a-z0-9]$', 'i');
-      if (!regex.test(connectTeamname)) {
-        logger.info(`Got malformed teamname: ${teamname}s`);
-        return res.redirect('/balancer/');
-      }
-      logger.info(`proxying upgrade request for: ${req.url} with team ${connectTeamname}`);
-      proxy.ws(req, socket, head, {
-        target: `ws://${connectTeamname}-virtualdesktop.${connectTeamname}.svc:8080`,
-        ws: true,
-      });
-    });
-  } else {
-    proxy.web(req, res, target, (error) => {
-      logger.warn(`Proxy fail '${error.code}' for: ${req.method.toLocaleUpperCase()} ${req.path}`);
-
-      if (error.code !== 'ENOTFOUND' && error.code !== 'EHOSTUNREACH') {
-        logger.error(error.message);
-      } else {
-        logger.debug(error.message);
-      }
-    });
+  // Support same-origin MCP calls from the balancer UI by rewriting
+  // /balancer/mcp[/...] to /mcp[/...] before forwarding to wrongsecrets.
+  if (req.url === '/balancer/mcp' || req.url.startsWith('/balancer/mcp?')) {
+    req.url = req.url.replace('/balancer/mcp', '/mcp');
+  } else if (req.url.startsWith('/balancer/mcp/')) {
+    req.url = req.url.replace('/balancer/mcp/', '/mcp/');
   }
+
+  proxy.web(req, res, target, (error) => {
+    logger.warn(`Proxy fail '${error.code}' for: ${req.method.toLocaleUpperCase()} ${req.path}`);
+
+    if (error.code !== 'ENOTFOUND' && error.code !== 'EHOSTUNREACH') {
+      logger.error(error.message);
+    } else {
+      logger.debug(error.message);
+    }
+  });
 }
 
 router.use(
@@ -199,3 +257,4 @@ router.use(
 );
 
 module.exports = router;
+module.exports.attachUpgradeHandler = attachUpgradeHandler;
