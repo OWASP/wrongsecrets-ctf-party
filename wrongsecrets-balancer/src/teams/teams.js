@@ -25,6 +25,8 @@ const {
   createConfigmapForTeam,
   createSecretsfileForTeam,
   createChallenge33SecretForTeam,
+  createChallenge62SecretForTeam,
+  createChallenge62ConfigMapForTeam,
   createAWSDeploymentForTeam,
   createAWSSecretsProviderForTeam,
   patchServiceAccountForTeamForAWS,
@@ -301,6 +303,14 @@ async function createTeam(req, res) {
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
+    logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
+    await createChallenge62SecretForTeam(team);
+    await createChallenge62ConfigMapForTeam(team);
+  } catch (error) {
+    logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+  try {
     logger.info(`Creating WrongSecrets Deployment for team '${team}' with k8s (no cloud)`);
     await createK8sDeploymentForTeam({ team, passcodeHash: hash });
     await createServiceForTeam(team);
@@ -418,6 +428,14 @@ async function createAWSTeam(req, res) {
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+  try {
+    logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
+    await createChallenge62SecretForTeam(team);
+    await createChallenge62ConfigMapForTeam(team);
+  } catch (error) {
+    logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
@@ -560,6 +578,14 @@ async function createAzureTeam(req, res) {
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
+    logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
+    await createChallenge62SecretForTeam(team);
+    await createChallenge62ConfigMapForTeam(team);
+  } catch (error) {
+    logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+  try {
     logger.info(
       `Creating Secrets provider for team ${team}, please make sure the csi driver helm is installed and running`
     );
@@ -688,6 +714,14 @@ async function createGCPTeam(req, res) {
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
+    res.status(500).send({ message: 'Failed to Create Instance' });
+  }
+  try {
+    logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
+    await createChallenge62SecretForTeam(team);
+    await createChallenge62ConfigMapForTeam(team);
+  } catch (error) {
+    logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
     res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {

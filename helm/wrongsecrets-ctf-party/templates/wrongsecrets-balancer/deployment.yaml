@@ -58,6 +58,11 @@ spec:
                 secretKeyRef:
                   name: wrongsecrets-balancer-secret
                   key: adminPassword
+            - name: GOOGLE_CLOUD_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: wrongsecrets-challenge62-secret
+                  key: credentials
           {{- if .Values.balancer.containerSecurityContext.enabled }}
           securityContext:
             {{- omit .Values.balancer.containerSecurityContext "enabled" | toYaml | nindent 12 }}
