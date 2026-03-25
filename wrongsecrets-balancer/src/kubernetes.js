@@ -69,7 +69,7 @@ const gcpSecretsmanagerSecretName1 = process.env.GCP_SECRETS_MANAGER_SECRET_ID_1
 const gcpSecretsmanagerSecretName2 = process.env.GCP_SECRETS_MANAGER_SECRET_ID_2;
 const gcpProject = process.env.GCP_PROJECT_ID;
 const challenge33Value = process.env.CHALLENGE33_VALUE;
-const challenge62GoogleCredentials = process.env.GOOGLE_CLOUD_CREDENTIALS;
+const googleCloudCredentials = process.env.GOOGLE_CLOUD_CREDENTIALS;
 const challenge62DocumentId = process.env.CHALLENGE62_DOCUMENT_ID;
 const wrongSecretsContainterTag = process.env.WRONGSECRETS_TAG;
 const wrongSecretsDekstopTag = process.env.WRONGSECRETS_DESKTOP_TAG;
@@ -326,7 +326,7 @@ const createChallenge62SecretForTeam = async (team) => {
   const secret = {
     apiVersion: 'v1',
     data: {
-      credentials: `${challenge62GoogleCredentials || ''}`,
+      credentials: googleCloudCredentials || '',
     },
     kind: 'Secret',
     type: 'Opaque',
@@ -346,7 +346,7 @@ const createChallenge62ConfigMapForTeam = async (team) => {
   const configmap = {
     apiVersion: 'v1',
     data: {
-      documentId: `${challenge62DocumentId || ''}`,
+      documentId: challenge62DocumentId || '',
     },
     kind: 'ConfigMap',
     metadata: {
