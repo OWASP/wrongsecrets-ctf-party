@@ -5,6 +5,8 @@ module.exports = {
   createConfigmapForTeam: jest.fn(),
   createSecretsfileForTeam: jest.fn(),
   createChallenge33SecretForTeam: jest.fn(),
+  createChallenge62SecretForTeam: jest.fn(),
+  createChallenge62ConfigMapForTeam: jest.fn(),
   createDesktopDeploymentForTeam: jest.fn(),
   createServiceForTeam: jest.fn(),
   createDesktopServiceForTeam: jest.fn(),

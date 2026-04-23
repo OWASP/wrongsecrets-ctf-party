@@ -62,6 +62,11 @@ balancer:
     username: admin
     # -- Password for the basic auth credentials (will be generated if not set)
     # adminPassword: admin
+  # -- Base64-encoded Google service account JSON key for challenge 62.
+  # Generate this by creating a service account in GCP and downloading its JSON key file, then running:
+  # base64 -w 0 service-account-key.json
+  # See https://github.com/OWASP/wrongsecrets/blob/master/docs/CHALLENGE62_GOOGLE_DRIVE_SETUP.md for detailed setup instructions.
+  challenge62GoogleCloudCredentials: "" # Set to the base64-encoded Google service account JSON key. See https://github.com/OWASP/wrongsecrets/blob/master/docs/CHALLENGE62_GOOGLE_DRIVE_SETUP.md for setup instructions.
   # -- Probes settings for the balancer pods
   # -- livenessProbe: Checks if the balancer pod is still alive
   livenessProbe:
@@ -110,6 +115,7 @@ balancer:
     GCP_SECRETS_MANAGER_SECRET_ID_2: "wrongsecret-2" #only change if you need non-default GCP SM entries
     GCP_PROJECT_ID: "" #Change this to your GCP project ID
     CHALLENGE33_VALUE: "VkJVR2gzd3UvM0kxbmFIajFVZjk3WTBMcThCNS85MnExandwMy9hWVN3SFNKSThXcWRabllMajc4aEVTbGZQUEtmMVpLUGFwNHoyK3IrRzlOUndkRlUvWUJNVFkzY05ndU1tNUM2bDJwVEs5SmhQRm5VemVySXdNcm5odTlHanJxU0ZuL0J0T3ZMblFhL21TZ1hETkpZVU9VOGdDSEZzOUpFZVF2OWhwV3B5eGxCMk5xdTBNSHJQTk9EWTNab2hoa2pXWGF4YmpDWmk5U3BtSHlkVTA2WjdMcVd5RjM5RzZWOENGNkxCUGtkVW4zYUpBVisrRjBROUljU009Cg=="
+    CHALLENGE62_DOCUMENT_ID: "" #Change this to your Google Document ID for challenge 62 (see guides/gcp/gcp.md for instructions)
   podSecurityContext:
     # -- If true, sets the securityContext on the created pods. This is required for the podSecurityPolicy to work
     enabled: true
