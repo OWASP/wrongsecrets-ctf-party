@@ -66,6 +66,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | balancer.affinity | object | `{}` | Optional Configure kubernetes scheduling affinity for the created wrongsecrets instances (see: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) |
 | balancer.basicAuth | object | `{"username":"admin"}` | Credentials used in wrongsecrets-balancer-secret to authenticate with the wrongsecrets-api |
 | balancer.basicAuth.username | string | `"admin"` | Username for the basic auth credentials |
+| balancer.challenge62GoogleCloudCredentials | string | `""` | Base64-encoded Google service account JSON key for challenge 62. Generate this by creating a service account in GCP and downloading its JSON key file, then running: base64 -w 0 service-account-key.json See https://github.com/OWASP/wrongsecrets/blob/master/docs/CHALLENGE62_GOOGLE_DRIVE_SETUP.md for detailed setup instructions. |
 | balancer.containerPort | int | `3000` | Port to expose on the balancer pods which the container listens on |
 | balancer.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
 | balancer.containerSecurityContext.capabilities.add[0] | string | `"CAP_NET_ADMIN"` |  |
@@ -87,6 +88,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | balancer.env.AZ_POD_CLIENT_ID | string | `""` |  |
 | balancer.env.AZ_VAULT_URI | string | `""` |  |
 | balancer.env.CHALLENGE33_VALUE | string | `"VkJVR2gzd3UvM0kxbmFIajFVZjk3WTBMcThCNS85MnExandwMy9hWVN3SFNKSThXcWRabllMajc4aEVTbGZQUEtmMVpLUGFwNHoyK3IrRzlOUndkRlUvWUJNVFkzY05ndU1tNUM2bDJwVEs5SmhQRm5VemVySXdNcm5odTlHanJxU0ZuL0J0T3ZMblFhL21TZ1hETkpZVU9VOGdDSEZzOUpFZVF2OWhwV3B5eGxCMk5xdTBNSHJQTk9EWTNab2hoa2pXWGF4YmpDWmk5U3BtSHlkVTA2WjdMcVd5RjM5RzZWOENGNkxCUGtkVW4zYUpBVisrRjBROUljU009Cg=="` |  |
+| balancer.env.CHALLENGE62_DOCUMENT_ID | string | `""` |  |
 | balancer.env.GCP_PROJECT_ID | string | `""` |  |
 | balancer.env.GCP_SECRETS_MANAGER_SECRET_ID_1 | string | `"wrongsecret"` |  |
 | balancer.env.GCP_SECRETS_MANAGER_SECRET_ID_2 | string | `"wrongsecret-2"` |  |

@@ -69,6 +69,8 @@ const gcpSecretsmanagerSecretName1 = process.env.GCP_SECRETS_MANAGER_SECRET_ID_1
 const gcpSecretsmanagerSecretName2 = process.env.GCP_SECRETS_MANAGER_SECRET_ID_2;
 const gcpProject = process.env.GCP_PROJECT_ID;
 const challenge33Value = process.env.CHALLENGE33_VALUE;
+const googleCloudCredentials = process.env.GOOGLE_CLOUD_CREDENTIALS;
+const challenge62DocumentId = process.env.CHALLENGE62_DOCUMENT_ID;
 const wrongSecretsContainterTag = process.env.WRONGSECRETS_TAG;
 const wrongSecretsDekstopTag = process.env.WRONGSECRETS_DESKTOP_TAG;
 const heroku_wrongsecret_ctf_url = process.env.REACT_APP_HEROKU_WRONGSECRETS_URL;
@@ -318,6 +320,45 @@ const createSealedChallenge33SecretForTeam = async (team) => {
   };
 
   return createSealedSecretForTeam(team, secretName, secretData);
+};
+
+const createChallenge62SecretForTeam = async (team) => {
+  const secret = {
+    apiVersion: 'v1',
+    data: {
+      credentials: googleCloudCredentials || '',
+    },
+    kind: 'Secret',
+    type: 'Opaque',
+    metadata: {
+      name: 'challenge62',
+      namespace: `t-${team}`,
+    },
+  };
+  return k8sCoreApi
+    .createNamespacedSecret({ namespace: 't-' + team, body: secret })
+    .catch((error) => {
+      throw new Error(error.response.message);
+    });
+};
+
+const createChallenge62ConfigMapForTeam = async (team) => {
+  const configmap = {
+    apiVersion: 'v1',
+    data: {
+      documentId: challenge62DocumentId || '',
+    },
+    kind: 'ConfigMap',
+    metadata: {
+      name: 'challenge62-config',
+      namespace: `t-${team}`,
+    },
+  };
+  return k8sCoreApi
+    .createNamespacedConfigMap({ namespace: 't-' + team, body: configmap })
+    .catch((error) => {
+      throw new Error(error.response.message);
+    });
 };
 
 /**
@@ -673,6 +714,24 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                     },
                   },
                 },
+                {
+                  name: 'GOOGLE_CLOUD_CREDENTIALS',
+                  valueFrom: {
+                    secretKeyRef: {
+                      name: 'challenge62',
+                      key: 'credentials',
+                    },
+                  },
+                },
+                {
+                  name: 'CHALLENGE62_DOCUMENT_ID',
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: 'challenge62-config',
+                      key: 'documentId',
+                    },
+                  },
+                },
                 ...get('wrongsecrets.env', []),
               ],
               envFrom: get('wrongsecrets.envFrom'),
@@ -931,6 +990,24 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
                     secretKeyRef: {
                       name: 'challenge33',
                       key: 'answer',
+                    },
+                  },
+                },
+                {
+                  name: 'GOOGLE_CLOUD_CREDENTIALS',
+                  valueFrom: {
+                    secretKeyRef: {
+                      name: 'challenge62',
+                      key: 'credentials',
+                    },
+                  },
+                },
+                {
+                  name: 'CHALLENGE62_DOCUMENT_ID',
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: 'challenge62-config',
+                      key: 'documentId',
                     },
                   },
                 },
@@ -1219,6 +1296,24 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
                     secretKeyRef: {
                       name: 'challenge33',
                       key: 'answer',
+                    },
+                  },
+                },
+                {
+                  name: 'GOOGLE_CLOUD_CREDENTIALS',
+                  valueFrom: {
+                    secretKeyRef: {
+                      name: 'challenge62',
+                      key: 'credentials',
+                    },
+                  },
+                },
+                {
+                  name: 'CHALLENGE62_DOCUMENT_ID',
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: 'challenge62-config',
+                      key: 'documentId',
                     },
                   },
                 },
@@ -2466,6 +2561,24 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
                     },
                   },
                 },
+                {
+                  name: 'GOOGLE_CLOUD_CREDENTIALS',
+                  valueFrom: {
+                    secretKeyRef: {
+                      name: 'challenge62',
+                      key: 'credentials',
+                    },
+                  },
+                },
+                {
+                  name: 'CHALLENGE62_DOCUMENT_ID',
+                  valueFrom: {
+                    configMapKeyRef: {
+                      name: 'challenge62-config',
+                      key: 'documentId',
+                    },
+                  },
+                },
               ],
               envFrom: get('wrongsecrets.envFrom'),
               ports: [
@@ -2560,6 +2673,8 @@ module.exports = {
   createConfigmapForTeam,
   createSecretsfileForTeam,
   createChallenge33SecretForTeam,
+  createChallenge62SecretForTeam,
+  createChallenge62ConfigMapForTeam,
   createSealedSecretForTeam,
   createSealedChallenge33SecretForTeam,
   getSealedSecretsPublicKey,
