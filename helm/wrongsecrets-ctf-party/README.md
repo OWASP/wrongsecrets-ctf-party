@@ -66,7 +66,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | balancer.affinity | object | `{}` | Optional Configure kubernetes scheduling affinity for the created wrongsecrets instances (see: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) |
 | balancer.basicAuth | object | `{"username":"admin"}` | Credentials used in wrongsecrets-balancer-secret to authenticate with the wrongsecrets-api |
 | balancer.basicAuth.username | string | `"admin"` | Username for the basic auth credentials |
-| balancer.challenge62GoogleCloudCredentials | string | `""` | Base64-encoded Google service account JSON key for challenge 62. Generate this by creating a service account in GCP and downloading its JSON key file, then running: base64 -w 0 service-account-key.json See guides/gcp/gcp.md for detailed instructions. |
+| balancer.challenge62GoogleCloudCredentials | string | `""` | Base64-encoded Google service account JSON key for challenge 62. Generate this by creating a service account in GCP and downloading its JSON key file, then running: base64 -w 0 service-account-key.json See https://github.com/OWASP/wrongsecrets/blob/master/docs/CHALLENGE62_GOOGLE_DRIVE_SETUP.md for detailed setup instructions. |
 | balancer.containerPort | int | `3000` | Port to expose on the balancer pods which the container listens on |
 | balancer.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
 | balancer.containerSecurityContext.capabilities.add[0] | string | `"CAP_NET_ADMIN"` |  |
