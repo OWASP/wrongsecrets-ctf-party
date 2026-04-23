@@ -6,6 +6,8 @@ Please check the [gcp folders readme file](../../gcp/README.md).
 
 Challenge 62 requires a Google service account with access to a specific Google Document. Follow the steps below to configure this challenge for your CTF event.
 
+For the full setup guide, see the [WrongSecrets Challenge 62 Google Drive Setup documentation](https://github.com/OWASP/wrongsecrets/blob/master/docs/CHALLENGE62_GOOGLE_DRIVE_SETUP.md).
+
 ### 1. Create a Google Service Account
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
@@ -15,7 +17,7 @@ Challenge 62 requires a Google service account with access to a specific Google 
 5. After creation, click on the service account and go to the **Keys** tab.
 6. Click **Add Key** > **Create new key**, select **JSON**, and download the key file.
 
-For more details on creating service accounts, see the [WrongSecrets documentation](https://github.com/OWASP/wrongsecrets) and the [Google Cloud service accounts guide](https://cloud.google.com/iam/docs/service-accounts-create).
+For more details on creating service accounts, see the [WrongSecrets Challenge 62 Google Drive Setup documentation](https://github.com/OWASP/wrongsecrets/blob/master/docs/CHALLENGE62_GOOGLE_DRIVE_SETUP.md) and the [Google Cloud service accounts guide](https://cloud.google.com/iam/docs/service-accounts-create).
 
 ### 2. Prepare the Google Document
 
