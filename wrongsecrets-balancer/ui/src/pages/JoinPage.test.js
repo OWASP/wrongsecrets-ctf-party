@@ -85,6 +85,6 @@ describe('JoinPage', () => {
 
     await renderJoinPage();
 
-    expect(container.querySelector('[data-test-id="password-input"]')).not.toBeNull();
+    expect(container.querySelector('input[name="password"]')).not.toBeNull();
   });
 });

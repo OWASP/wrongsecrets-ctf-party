@@ -7,7 +7,6 @@ describe('ScoreBoard', () => {
   let container;
   let root;
   let fetchSpy;
-  let consoleErrorSpy;
 
   beforeEach(() => {
     global.IS_REACT_ACT_ENVIRONMENT = true;
@@ -25,12 +24,6 @@ describe('ScoreBoard', () => {
         ],
       }),
     });
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation((message, ...args) => {
-      if (typeof message === 'string' && message.includes('Each child in a list should have a unique')) {
-        return;
-      }
-      console.warn(message, ...args);
-    });
   });
 
   afterEach(async () => {
@@ -39,7 +32,6 @@ describe('ScoreBoard', () => {
     });
     container.remove();
     fetchSpy.mockRestore();
-    consoleErrorSpy.mockRestore();
   });
 
   test('renders fetched team scores', async () => {
