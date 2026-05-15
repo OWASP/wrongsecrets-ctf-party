@@ -245,11 +245,12 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 
 async function generatePasscode() {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const maxUnbiasedValue = 256 - (256 % characters.length);
   let passcode = '';
   while (passcode.length < 8) {
     const randomBytes = crypto.randomBytes(8 - passcode.length);
     for (const byte of randomBytes) {
-      if (byte >= 252) {
+      if (byte >= maxUnbiasedValue) {
         continue;
       }
       passcode += characters[byte % characters.length];
