@@ -216,7 +216,7 @@ export const ScoreBoard = () => {
           <Tbody>
             {teams.map((team, index) => {
               return (
-                <tr key={team.name}>
+                <tr key={`${team.name}-${index}`}>
                   <Td style={{ textAlign: 'center' }}>
                     <PlaceDisplay place={index + 1}></PlaceDisplay>
                   </Td>
