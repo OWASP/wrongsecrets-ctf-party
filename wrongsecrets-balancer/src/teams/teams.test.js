@@ -164,7 +164,7 @@ test('create team creates a instance for team via k8s service', async () => {
     .expect(200)
     .then(({ body }) => {
       expect(body.message).toBe('Created Instance');
-      expect(body.passcode).toMatch(/[a-zA-Z0-9]{7}/);
+      expect(body.passcode).toMatch(/^[A-Z0-9]{8}$/);
       passcode = body.passcode;
     });
 
@@ -226,7 +226,7 @@ test('reset passcode resets passcode to new value if team exists', async () => {
     .expect(200)
     .then(({ body }) => {
       expect(body.message).toBe('Reset Passcode');
-      expect(body.passcode).toMatch(/[a-zA-Z0-9]{7}/);
+      expect(body.passcode).toMatch(/^[A-Z0-9]{8}$/);
       newPasscode = body.passcode;
     });
 
