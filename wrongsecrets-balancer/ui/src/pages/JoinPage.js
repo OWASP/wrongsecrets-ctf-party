@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { FormattedMessage, defineMessages, injectIntl } from 'react-intl';
+import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import cryptoJS from 'crypto-js';
 
 import styled from 'styled-components';
@@ -29,7 +29,7 @@ const CenterLogo = styled.img`
   width: 85%;
 `;
 
-export const JoinPage = injectIntl(({ intl }) => {
+export const JoinPage = () => {
   const [teamname, setTeamname] = useState('');
   const [password, setPassword] = useState('');
   const [failed, setFailed] = useState(false);
@@ -48,7 +48,7 @@ export const JoinPage = injectIntl(({ intl }) => {
 
   const passcode = undefined;
 
-  const { formatMessage } = intl;
+  const { formatMessage } = useIntl();
 
   async function sendJoinRequest() {
     try {
@@ -285,4 +285,4 @@ export const JoinPage = injectIntl(({ intl }) => {
       </BodyCard>
     </>
   );
-});
+};

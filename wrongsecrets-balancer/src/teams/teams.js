@@ -1,7 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const cryptoRandomString = require('crypto-random-string');
 
 const Joi = require('joi');
 const expressJoiValidation = require('express-joi-validation');
@@ -245,7 +244,7 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 }
 
 async function generatePasscode() {
-  const passcode = cryptoRandomString({ length: 8 }).toUpperCase();
+  const passcode = crypto.randomBytes(4).toString('hex').toUpperCase();
   const hash = await bcrypt.hash(passcode, BCRYPT_ROUNDS);
   return { passcode, hash };
 }

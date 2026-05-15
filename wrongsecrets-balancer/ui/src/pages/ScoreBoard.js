@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { injectIntl } from 'react-intl';
-
 import styled from 'styled-components';
 
 import { BodyCard } from '../Components';
@@ -176,7 +174,7 @@ const Undertitle = styled.p`
   margin: 4px 0 0;
 `;
 
-export const ScoreBoard = injectIntl(() => {
+export const ScoreBoard = () => {
   const [teams, setTeams] = useState([]);
   useEffect(() => {
     fetch('/balancer/score-board/top')
@@ -235,4 +233,4 @@ export const ScoreBoard = injectIntl(() => {
       </NoPaddingBodyCard>
     </>
   );
-});
+};
