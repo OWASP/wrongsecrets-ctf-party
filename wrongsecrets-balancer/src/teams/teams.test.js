@@ -160,13 +160,13 @@ test('create team creates a instance for team via k8s service', async () => {
 
   await request(app)
     .post('/balancer/teams/team42/join')
-      .send({ hmacvalue: '4c8dd1f1306727c537aa96f0c59968b719740f2a30ccda92044ea59622565564' })
-      .expect(200)
-      .then(({ body }) => {
-        expect(body.message).toBe('Created Instance');
-        expect(body.passcode).toMatch(/^[A-Z0-9]{8}$/);
-        passcode = body.passcode;
-      });
+    .send({ hmacvalue: '4c8dd1f1306727c537aa96f0c59968b719740f2a30ccda92044ea59622565564' })
+    .expect(200)
+    .then(({ body }) => {
+      expect(body.message).toBe('Created Instance');
+      expect(body.passcode).toMatch(/^[A-Z0-9]{8}$/);
+      passcode = body.passcode;
+    });
 
   expect(createConfigmapForTeam).toHaveBeenCalled();
   expect(createSecretsfileForTeam).toHaveBeenCalled();
