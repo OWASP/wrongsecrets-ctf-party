@@ -25,21 +25,20 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Install yq
-        run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
 
-      - name: Run Deployment Script in Background and Wait
+      - name: Run Deployment Script
         run: |
           chmod +x build-and-deploy-minikube.sh
-          ./build-and-deploy-minikube.sh &
-          echo "Deployment script running in background. Waiting for pods..."
-          sleep 60
-          kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=10m
+          ./build-and-deploy-minikube.sh
 
       - name: Install Cypress and Run Tests
         uses: cypress-io/github-action@v6
         with:
           working-directory: wrongsecrets-balancer
           wait-on: 'http://localhost:3000'
-          wait-on-timeout: 120
+          wait-on-timeout: 300
           browser: chrome
           headless: true
