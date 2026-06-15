@@ -27,10 +27,13 @@ jobs:
       - name: Install yq
         run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
 
-      - name: Run Deployment Script
+      - name: Run Deployment Script in Background and Wait
         run: |
           chmod +x build-and-deploy-minikube.sh
-          ./build-and-deploy-minikube.sh
+          ./build-and-deploy-minikube.sh &
+          echo "Deployment script running in background. Waiting for pods..."
+          sleep 60
+          kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=10m
 
       - name: Install Cypress and Run Tests
         uses: cypress-io/github-action@v6
@@ -39,4 +42,4 @@ jobs:
           wait-on: 'http://localhost:3000'
           wait-on-timeout: 120
           browser: chrome
-          headless: true
+          headless: true 
