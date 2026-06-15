@@ -13,6 +13,11 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
       - name: Start Minikube
         uses: medyagh/setup-minikube@latest
         with:
@@ -38,7 +43,7 @@ jobs:
         uses: cypress-io/github-action@v6
         with:
           working-directory: wrongsecrets-balancer
+          install: true
           wait-on: 'http://localhost:3000'
           wait-on-timeout: 300
           browser: chrome
-          headless: true
