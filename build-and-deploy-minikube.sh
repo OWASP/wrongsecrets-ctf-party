@@ -9,7 +9,10 @@ eval $(minikube docker-env)
 ./build-and-deploy.sh
 
 echo "Waiting for wrongsecrets-balancer pods to be ready..."
-kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=2s
+kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=300s
+
+kubectl get pods
+kubectl get pods -o wide
 
 echo "let's go!"
 
