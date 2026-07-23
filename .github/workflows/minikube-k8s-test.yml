@@ -68,10 +68,11 @@ jobs:
         run: |
           eval $(minikube docker-env)
           version="$(uuidgen)"
-          WRONGSECRETS_IMAGE=$(yq '.wrongsecrets.image' helm/wrongsecrets-ctf-party/values.yaml)
-          WRONGSECRETS_TAG=$(yq '.wrongsecrets.tag' helm/wrongsecrets-ctf-party/values.yaml)
-          WEBTOP_IMAGE=$(yq '.virtualdesktop.image' helm/wrongsecrets-ctf-party/values.yaml)
-          WEBTOP_TAG=$(yq '.virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml)
+          mapfile -t _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml)
+          WRONGSECRETS_IMAGE="${_vals[0]}"
+          WRONGSECRETS_TAG="${_vals[1]}"
+          WEBTOP_IMAGE="${_vals[2]}"
+          WEBTOP_TAG="${_vals[3]}"
           docker pull "${WRONGSECRETS_IMAGE}:${WRONGSECRETS_TAG}" &
           docker pull "${WEBTOP_IMAGE}:${WEBTOP_TAG}" &
           docker build -t "local/wrongsecrets-balancer:${version}" ./wrongsecrets-balancer &

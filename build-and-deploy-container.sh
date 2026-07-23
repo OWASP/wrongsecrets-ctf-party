@@ -10,14 +10,15 @@ echo "Usage: ./build-and-deploy.sh"
 source ./scripts/check-available-commands.sh
 checkCommandsAvailable helm docker kubectl yq
 
-WRONGSECRETS_IMAGE=$(yq '.wrongsecrets.image' helm/wrongsecrets-ctf-party/values.yaml)
-WRONGSECRETS_TAG=$(yq '.wrongsecrets.tag' helm/wrongsecrets-ctf-party/values.yaml)
-WEBTOP_IMAGE=$(yq '.virtualdesktop.image' helm/wrongsecrets-ctf-party/values.yaml)
-WEBTOP_TAG=$(yq '.virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml)
-WRONGSECRETS_BALANCER_IMAGE=$(yq '.balancer.repository' helm/wrongsecrets-ctf-party/values.yaml)
-WRONGSECRETS_BALANCER_TAG=$(yq '.balancer.tag' helm/wrongsecrets-ctf-party/values.yaml)
-WRONGSECRETS_CLEANER_IMAGE=$(yq '.wrongsecretsCleanup.repository' helm/wrongsecrets-ctf-party/values.yaml)
-WRONGSECRETS_CLEANER_TAG=$(yq '.wrongsecretsCleanup.tag' helm/wrongsecrets-ctf-party/values.yaml)
+mapfile -t _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag, .balancer.repository, .balancer.tag, .wrongsecretsCleanup.repository, .wrongsecretsCleanup.tag' helm/wrongsecrets-ctf-party/values.yaml)
+WRONGSECRETS_IMAGE="${_vals[0]}"
+WRONGSECRETS_TAG="${_vals[1]}"
+WEBTOP_IMAGE="${_vals[2]}"
+WEBTOP_TAG="${_vals[3]}"
+WRONGSECRETS_BALANCER_IMAGE="${_vals[4]}"
+WRONGSECRETS_BALANCER_TAG="${_vals[5]}"
+WRONGSECRETS_CLEANER_IMAGE="${_vals[6]}"
+WRONGSECRETS_CLEANER_TAG="${_vals[7]}"
 echo "Pulling in required images to actually run ${WRONGSECRETS_IMAGE}:${WRONGSECRETS_TAG} & ${WEBTOP_IMAGE}:${WEBTOP_TAG}."
 echo "If you see an authentication failure: pull them manually by the following 2 commands"
 echo "'docker pull ${WRONGSECRETS_IMAGE}:${WRONGSECRETS_TAG}'"
