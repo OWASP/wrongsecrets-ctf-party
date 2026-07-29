@@ -4,12 +4,15 @@ source ./scripts/check-available-commands.sh
 checkCommandsAvailable helm docker kubectl yq minikube
 
 minikube delete
-minikube start  --cpus=8 --memory=12000MB --network-plugin=cni --cni=calico --driver=docker --kubernetes-version=1.32.0
+minikube start  --cpus=2 --memory=8000MB --network-plugin=cni --cni=calico --driver=docker --kubernetes-version=1.32.0
 eval $(minikube docker-env)
 ./build-and-deploy.sh
 
 echo "Waiting for wrongsecrets-balancer pods to be ready..."
-kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=2s
+kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=300s
+
+kubectl get pods
+kubectl get pods -o wide
 
 echo "let's go!"
 
