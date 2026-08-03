@@ -87,10 +87,10 @@ async function listOldNamespaces() {
     for (const deployment of deployments.body.items) {
       // Get the name of the deployment
       const deploymentName = deployment.metadata.name;
-      const lastConnectTimestamps = parseInt(
-        deployment.metadata.annotations['wrongsecrets-ctf-party/lastRequest'],
-        10
-      );
+      const lastConnectTimestamps =
+        parseInt(deployment.metadata.annotations?.['wrongsecrets-ctf-party/lastRequest'], 10) ||
+        Date.parse(deployment.metadata.creationTimestamp) ||
+        0;
 
       console.log(`Checking deployment: '${deploymentName}'.`);
 
@@ -163,7 +163,9 @@ module.exports = {
   deleteNamespaces,
 };
 
-main().catch((err) => {
-  console.error('Failed deletion tasks');
-  console.error(err);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Failed deletion tasks');
+    console.error(err);
+  });
+}

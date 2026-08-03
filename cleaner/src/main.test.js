@@ -327,3 +327,107 @@ test('should return two deleted namespaces and fail in one', async () => {
   });
   expect(await app.deleteNamespaces(namespaces)).toEqual(counts);
 });
+
+test('should handle deployments with undefined annotations', async () => {
+  getNamespaces.mockImplementation(() => {
+    return {
+      body: {
+        items: [
+          {
+            metadata: {
+              name: 't-team-no-annotations',
+            },
+          },
+        ],
+      },
+    };
+  });
+  getTeamJuiceShopInstances.mockImplementation(() => {
+    return {
+      body: {
+        items: [
+          {
+            metadata: {
+              name: 'wrongsecrets-1',
+              labels: {
+                team: 'team-no-annotations',
+              },
+              creationTimestamp: '2020-01-01T00:00:00Z',
+            },
+          },
+        ],
+      },
+    };
+  });
+  getTeamInstances.mockImplementation(() => {
+    return {
+      body: {
+        items: [
+          {
+            metadata: {
+              name: 'wrongsecrets-1',
+              labels: {
+                team: 'team-no-annotations',
+              },
+              creationTimestamp: '2020-01-01T00:00:00Z',
+            },
+          },
+        ],
+      },
+    };
+  });
+  expect(await app.listOldNamespaces()).toEqual(['t-team-no-annotations']);
+});
+
+test('should fall back to creationTimestamp if lastRequest annotation is missing', async () => {
+  getNamespaces.mockImplementation(() => {
+    return {
+      body: {
+        items: [
+          {
+            metadata: {
+              name: 't-team-fallback',
+            },
+          },
+        ],
+      },
+    };
+  });
+  getTeamJuiceShopInstances.mockImplementation(() => {
+    return {
+      body: {
+        items: [
+          {
+            metadata: {
+              name: 'wrongsecrets-1',
+              labels: {
+                team: 'team-fallback',
+              },
+              annotations: {},
+              creationTimestamp: new Date().toISOString(),
+            },
+          },
+        ],
+      },
+    };
+  });
+  getTeamInstances.mockImplementation(() => {
+    return {
+      body: {
+        items: [
+          {
+            metadata: {
+              name: 'wrongsecrets-1',
+              labels: {
+                team: 'team-fallback',
+              },
+              annotations: {},
+              creationTimestamp: new Date().toISOString(),
+            },
+          },
+        ],
+      },
+    };
+  });
+  expect(await app.listOldNamespaces()).toEqual([]);
+});
