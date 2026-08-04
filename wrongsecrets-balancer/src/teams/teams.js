@@ -296,7 +296,7 @@ async function createTeam(req, res) {
     await createNameSpaceForTeam(team);
   } catch (error) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating Configmap for team '${team}'`);
@@ -306,14 +306,14 @@ async function createTeam(req, res) {
     await createSecretsfileForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge33 for team '${team}'`);
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge33 secretsfile ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
@@ -321,7 +321,7 @@ async function createTeam(req, res) {
     await createChallenge62ConfigMapForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating WrongSecrets Deployment for team '${team}' with k8s (no cloud)`);
@@ -331,7 +331,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating service account for virtual desktop in K8s '${team}'`);
@@ -341,7 +341,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -350,7 +350,7 @@ async function createTeam(req, res) {
     logger.info(`Created challenge53 Deployment for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -361,7 +361,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating role for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -372,7 +372,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating virtualdesktop Deployment for team '${team}'`);
@@ -384,7 +384,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating network security policies for team '${team}'`);
@@ -393,7 +393,7 @@ async function createTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -430,7 +430,7 @@ async function createAWSTeam(req, res) {
     await createNameSpaceForTeam(team);
   } catch (error) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating Configmap for team '${team}'`);
@@ -441,7 +441,7 @@ async function createAWSTeam(req, res) {
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
@@ -449,7 +449,7 @@ async function createAWSTeam(req, res) {
     await createChallenge62ConfigMapForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(
@@ -458,7 +458,7 @@ async function createAWSTeam(req, res) {
     await createAWSSecretsProviderForTeam(team);
   } catch (error) {
     logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -466,7 +466,7 @@ async function createAWSTeam(req, res) {
     await patchServiceAccountForTeamForAWS(team);
   } catch (error) {
     logger.error(`Error while annotating the service account for  ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -477,7 +477,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -488,7 +488,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -497,7 +497,7 @@ async function createAWSTeam(req, res) {
     logger.info(`Created challenge53 Deployment for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -508,7 +508,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating role for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -519,7 +519,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -532,7 +532,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -542,7 +542,7 @@ async function createAWSTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -577,7 +577,7 @@ async function createAzureTeam(req, res) {
     await createNameSpaceForTeam(team);
   } catch (error) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating Configmap for team '${team}'`);
@@ -588,7 +588,7 @@ async function createAzureTeam(req, res) {
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
@@ -596,7 +596,7 @@ async function createAzureTeam(req, res) {
     await createChallenge62ConfigMapForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(
@@ -605,7 +605,7 @@ async function createAzureTeam(req, res) {
     await createAzureSecretsProviderForTeam(team);
   } catch (error) {
     logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -616,7 +616,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -627,7 +627,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -636,7 +636,7 @@ async function createAzureTeam(req, res) {
     logger.info(`Created challenge53 Deployment for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -647,7 +647,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating role for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -658,7 +658,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -671,7 +671,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -681,7 +681,7 @@ async function createAzureTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -716,7 +716,7 @@ async function createGCPTeam(req, res) {
     await createNameSpaceForTeam(team);
   } catch (error) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating Configmap for team '${team}'`);
@@ -727,7 +727,7 @@ async function createGCPTeam(req, res) {
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
@@ -735,7 +735,7 @@ async function createGCPTeam(req, res) {
     await createChallenge62ConfigMapForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(
@@ -744,7 +744,7 @@ async function createGCPTeam(req, res) {
     await createGCPSecretsProviderForTeam(team);
   } catch (error) {
     logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -753,7 +753,7 @@ async function createGCPTeam(req, res) {
     logger.info(`Created IAM service account for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating IAM service account for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -762,7 +762,7 @@ async function createGCPTeam(req, res) {
     logger.info(`Bound IAM service account to workload for team '${team}'`);
   } catch (error) {
     logger.error(`Error while binding IAM service account to workload for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -770,7 +770,7 @@ async function createGCPTeam(req, res) {
     await patchServiceAccountForTeamForGCP(team);
   } catch (error) {
     logger.error(`Error while annotating the service account for  ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -781,7 +781,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -792,7 +792,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -801,7 +801,7 @@ async function createGCPTeam(req, res) {
     logger.info(`Created challenge53 Deployment for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -812,7 +812,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating role for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -823,7 +823,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -836,7 +836,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -846,7 +846,7 @@ async function createGCPTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     loginCounter.inc({ type: 'registration', userType: 'user' }, 1);

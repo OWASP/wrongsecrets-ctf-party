@@ -188,6 +188,23 @@ test('create team creates a instance for team via k8s service', async () => {
   expect(createServiceForTeam).toHaveBeenCalledWith('team42');
 });
 
+test('create team fails when namespace creation throws an error', async () => {
+  getJuiceShopInstanceForTeamname.mockImplementation(async () => {
+    throw new Error(`deployments.apps "t-team42-wrongsecrets" not found`);
+  });
+  createNameSpaceForTeam.mockImplementation(async () => {
+    throw new Error('Kubernetes API error');
+  });
+
+  await request(app)
+    .post('/balancer/teams/team42/join')
+    .send({ hmacvalue: '4c8dd1f1306727c537aa96f0c59968b719740f2a30ccda92044ea59622565564' })
+    .expect(500);
+
+  expect(createConfigmapForTeam).not.toHaveBeenCalled();
+  expect(createSecretsfileForTeam).not.toHaveBeenCalled();
+});
+
 test('reset passcode needs authentication if no cookie is sent', async () => {
   await request(app).post('/balancer/teams/reset-passcode').send().expect(401);
 });
