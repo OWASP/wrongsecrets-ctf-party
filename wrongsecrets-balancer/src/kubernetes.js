@@ -1959,7 +1959,7 @@ const createRoleForWebTop = async (team) => {
     labelSelector: `app=secret-challenge-53,team=${team},deployment-context=${get('deploymentContext')}`,
     limit: 1,
   });
-  const podName = res.items[0].metadata.name;
+  const podName = res.items && res.items[0] ? res.items[0].metadata.name : null;
   const roleDefinitionForWebtop = {
     kind: 'Role',
     apiVersion: 'rbac.authorization.k8s.io/v1',
@@ -1978,18 +1978,20 @@ const createRoleForWebTop = async (team) => {
         resources: ['configmaps'],
         verbs: ['get', 'list'],
       },
-      {
-        apiGroups: [''],
-        resources: ['pods/exec'],
-        verbs: ['create'],
-        resourceNames: [`${podName}`],
-      },
-      {
-        apiGroups: [''],
-        resources: ['pods'],
-        verbs: ['patch', 'update'],
-        resourceNames: [`${podName}`],
-      },
+      ...(podName ? [
+        {
+          apiGroups: [''],
+          resources: ['pods/exec'],
+          verbs: ['create'],
+          resourceNames: [podName],
+        },
+        {
+          apiGroups: [''],
+          resources: ['pods'],
+          verbs: ['patch', 'update'],
+          resourceNames: [podName],
+        },
+      ] : []),
       {
         apiGroups: [''],
         resources: ['pod', 'pods', 'pods/log'],
@@ -2311,7 +2313,7 @@ const deletePodForTeam = async (team) => {
     labelSelector: `app=wrongsecrets,team=${team},deployment-context=${get('deploymentContext')}`,
   });
 
-  const pods = res.items;
+  const pods = res.items || [];
 
   if (pods.length !== 1) {
     throw new Error(`Unexpected number of pods ${pods.length}`);
@@ -2332,7 +2334,7 @@ const deleteDesktopPodForTeam = async (team) => {
     labelSelector: `app=virtualdesktop,team=${team},deployment-context=${get('deploymentContext')}`,
   });
 
-  const pods = res.items;
+  const pods = res.items || [];
 
   if (pods.length !== 1) {
     throw new Error(`Unexpected number of pods ${pods.length}`);
