@@ -256,6 +256,7 @@ export const JoinPage = () => {
             value={teamname}
             title={formatMessage(messages.teamnameValidationConstraints)}
             pattern="^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+            required
             maxLength="16"
             onChange={({ target }) => setTeamname(target.value)}
           />

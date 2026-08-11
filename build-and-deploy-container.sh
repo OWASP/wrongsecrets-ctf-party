@@ -10,7 +10,7 @@ echo "Usage: ./build-and-deploy.sh"
 source ./scripts/check-available-commands.sh
 checkCommandsAvailable helm docker kubectl yq
 
-mapfile -t _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag, .balancer.repository, .balancer.tag, .wrongsecretsCleanup.repository, .wrongsecretsCleanup.tag' helm/wrongsecrets-ctf-party/values.yaml)
+IFS=$'\n' read -d '' -r -a _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag, .balancer.repository, .balancer.tag, .wrongsecretsCleanup.repository, .wrongsecretsCleanup.tag' helm/wrongsecrets-ctf-party/values.yaml && printf '\0')
 WRONGSECRETS_IMAGE="${_vals[0]}"
 WRONGSECRETS_TAG="${_vals[1]}"
 WEBTOP_IMAGE="${_vals[2]}"

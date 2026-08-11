@@ -181,6 +181,16 @@ async function joinIfTeamAlreadyExists(req, res, next) {
   const { passcode } = req.body || {};
 
   logger.info(`Checking if team ${team} already has a WrongSecrets Deployment`);
+  if (process.env.K8S_ENV === 'mock' && team === 'already-exists') {
+    return res
+      .cookie(get('cookieParser.cookieName'), `t-${team}`, {
+        ...cookieSettings,
+      })
+      .status(200)
+      .send({
+        message: 'Joined Team',
+      });
+  }
 
   try {
     const { passcodeHash } = await getJuiceShopInstanceForTeamname(team);
@@ -261,6 +271,9 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 }
 
 async function generatePasscode() {
+  if (process.env.K8S_ENV === 'mock') {
+    return { passcode: 'MOCKEDPC', hash: '$2a$04$B.OqQ0OaPq.e8k3K8k3K8u1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1' };
+  }
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const maxUnbiasedValue = 256 - (256 % characters.length);
   let passcode = '';

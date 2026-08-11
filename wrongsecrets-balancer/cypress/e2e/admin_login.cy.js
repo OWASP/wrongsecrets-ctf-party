@@ -8,7 +8,7 @@ describe('Admin Login', () => {
       .and.not.be.empty;
 
     // Visit the homepage to log in.
-    cy.visit('/');
+    cy.visit('/balancer/');
 
     // Type "admin" as the team name and click the button.
     cy.get('[data-test-id="teamname-input"]').type('admin');

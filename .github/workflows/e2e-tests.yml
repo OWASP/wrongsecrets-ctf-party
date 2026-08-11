@@ -40,7 +40,7 @@ jobs:
       - name: Export admin password for Cypress
         run: echo "CYPRESS_ADMIN_PASSWORD=$(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}' | base64 --decode)" >> "$GITHUB_ENV"
       - name: Run Cypress E2E Tests
-        uses: cypress-io/github-action@v6
+        uses: cypress-io/github-action@v7
         with:
           working-directory: wrongsecrets-balancer
           install: true
