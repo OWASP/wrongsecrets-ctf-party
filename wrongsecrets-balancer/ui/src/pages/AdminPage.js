@@ -252,7 +252,6 @@ export default function AdminPage() {
         lastConnect: team.lastConnect ? new Date(team.lastConnect) : new Date(),
       }));
 
-      console.log('Received teams data:', sanitizedTeams);
       setTeams(sanitizedTeams);
     } catch (err) {
       console.error('Failed to fetch current teams!', err);

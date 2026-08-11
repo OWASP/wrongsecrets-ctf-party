@@ -1,6 +1,9 @@
 const express = require('express');
+const Joi = require('joi');
+const expressJoiValidation = require('express-joi-validation');
 
 const router = express.Router();
+const validator = expressJoiValidation.createValidator();
 
 const {
   getJuiceShopInstances,
@@ -12,6 +15,13 @@ const {
 
 const { get } = require('../config');
 const { logger } = require('../logger');
+
+const paramsSchema = Joi.object({
+  team: Joi.string()
+    .required()
+    .max(16)
+    .pattern(/^[a-z0-9]([-a-z0-9])+[a-z0-9]$/),
+});
 
 /**
  * @param {import("express").Request} req
@@ -139,8 +149,12 @@ async function deleteInstance(req, res) {
 
 router.use(ensureAdminLogin);
 router.get('/all', listInstances);
-router.post('/teams/:team/restart', restartInstance);
-router.post('/teams/:team/restartdesktop', restartDesktopInstance);
-router.post('/teams/:team/restartchallenge53', restartChallenge53Deployment);
-router.delete('/teams/:team/delete', deleteInstance);
+router.post('/teams/:team/restart', validator.params(paramsSchema), restartInstance);
+router.post('/teams/:team/restartdesktop', validator.params(paramsSchema), restartDesktopInstance);
+router.post(
+  '/teams/:team/restartchallenge53',
+  validator.params(paramsSchema),
+  restartChallenge53Deployment
+);
+router.delete('/teams/:team/delete', validator.params(paramsSchema), deleteInstance);
 module.exports = router;

@@ -6,7 +6,6 @@ const Joi = require('joi');
 const expressJoiValidation = require('express-joi-validation');
 const promClient = require('prom-client');
 const accessPassword = process.env.REACT_APP_ACCESS_PASSWORD;
-const hmac_key = process.env.REACT_APP_CREATE_TEAM_HMAC_KEY || 'hardcodedkey';
 
 const validator = expressJoiValidation.createValidator();
 const k8sEnv = process.env.K8S_ENV || 'k8s';
@@ -55,7 +54,7 @@ const failedLoginCounter = new promClient.Counter({
 });
 
 const { logger } = require('../logger');
-const { get } = require('../config');
+const { get, getCreateTeamHmacKey } = require('../config');
 
 const BCRYPT_ROUNDS = process.env['NODE_ENV'] === 'production' ? 12 : 2;
 
@@ -107,17 +106,21 @@ async function validateHMAC(req, res, next) {
     const { team } = req.params;
     const { hmacvalue } = req.body || {};
     const validationValue = crypto
-      .createHmac('sha256', hmac_key)
+      .createHmac('sha256', getCreateTeamHmacKey())
       .update(`${team}`, 'utf-8')
       .digest('hex');
-    if (validationValue === hmacvalue) {
+    if (
+      typeof hmacvalue === 'string' &&
+      hmacvalue.length === validationValue.length &&
+      crypto.timingSafeEqual(Buffer.from(validationValue), Buffer.from(hmacvalue))
+    ) {
       return next();
     }
-    res.status(403).send({ message: 'Invalid validation, please stop doing this!' });
+    return res.status(403).send({ message: 'Invalid validation, please stop doing this!' });
   } catch (error) {
     logger.warn('invalid hmac provided;');
     logger.warn(JSON.stringify(error));
-    res.status(500).send({ message: 'Invalid validation, please stop doing this!' });
+    return res.status(500).send({ message: 'Invalid validation, please stop doing this!' });
   }
 }
 
@@ -129,21 +132,19 @@ async function validateHMAC(req, res, next) {
 async function validatePassword(req, res, next) {
   const { team } = req.params;
   const { password } = req.body || {};
-  logger.info(
-    `checking password for team ${team}, submitted: ${password}, needed: ${accessPassword}`
-  );
+  logger.info(`checking password for team ${team}`);
   try {
     if (!accessPassword || accessPassword.length === 0) {
-      next();
-    } else {
-      if (password === accessPassword) {
-        next();
-      } else {
-        res
-          .status(403)
-          .send({ message: 'Go home pizzaboy! https://www.youtube.com/watch?v=qyTj4WnPE9M' });
-      }
+      return next();
     }
+
+    if (password === accessPassword) {
+      return next();
+    }
+
+    return res
+      .status(403)
+      .send({ message: 'Go home pizzaboy! https://www.youtube.com/watch?v=qyTj4WnPE9M' });
   } catch (error) {
     logger.warn('error duing password validation');
     logger.warn(JSON.stringify(error));
@@ -223,7 +224,6 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 
   try {
     const response = await getJuiceShopInstances();
-    console.log('Response:', response);
 
     const instances = response.items;
 
@@ -942,12 +942,7 @@ async function awaitReadiness(req, res) {
  * @param {import("express").Response} res
  */
 function logout(req, res) {
-  return res
-    .cookie(get('cookieParser.cookieName'), {
-      expires: new Date(0),
-      ...cookieSettings,
-    })
-    .send();
+  return res.clearCookie(get('cookieParser.cookieName'), cookieSettings).send();
 }
 
 const paramsSchema = Joi.object({

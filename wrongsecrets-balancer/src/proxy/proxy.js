@@ -187,9 +187,8 @@ async function updateLastConnectTimestamp(req, res, next) {
  */
 function proxyTrafficToJuiceShop(req, res) {
   const teamname = req.teamname;
-  const regex = new RegExp('^[a-z0-9-]+$');
-  if (!regex.test(teamname)) {
-    logger.info(`Got malformed teamname: ${teamname}s`);
+  if (!isValidTeamname(teamname)) {
+    logger.info(`Got malformed teamname: ${teamname}`);
     return res.redirect('/balancer/');
   }
   const currentReferrerForDesktop = '/?desktop';

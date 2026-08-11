@@ -6,6 +6,7 @@ const request = require('supertest');
 const { __mockProxy } = require('http-proxy');
 
 const app = require('../app');
+const { get } = require('../config');
 const { attachUpgradeHandler } = require('./proxy');
 const {
   getJuiceShopInstanceForTeamname,
@@ -165,6 +166,13 @@ test('should redirect to /balancer/ when the instance is not existing', async ()
         '/balancer/?msg=instance-not-found&teamname=missing-instance'
       );
     });
+});
+
+test('should reject admin actions for malformed team names', async () => {
+  await request(app)
+    .post('/balancer/admin/teams/../../restart')
+    .set('Cookie', [`${get('cookieParser.cookieName')}=t-${get('admin.username')}`])
+    .expect(400);
 });
 
 test('should rewrite /balancer/mcp to /mcp before proxying', async () => {
