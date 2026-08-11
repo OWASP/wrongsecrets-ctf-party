@@ -1,8 +1,12 @@
 jest.mock('../kubernetes');
 jest.mock('http-proxy');
 
+const crypto = require('crypto');
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
+
+process.env.REACT_APP_CREATE_TEAM_HMAC_KEY = 'test-hmac-key';
+
 const app = require('../app');
 const { get } = require('../config');
 const {
@@ -26,6 +30,12 @@ const {
   createNSPsforTeam,
 } = require('../kubernetes');
 
+const validHmacFor = (teamname) =>
+  crypto
+    .createHmac('sha256', process.env.REACT_APP_CREATE_TEAM_HMAC_KEY)
+    .update(teamname, 'utf-8')
+    .digest('hex');
+
 afterEach(() => {
   getJuiceShopInstanceForTeamname.mockReset();
   getJuiceShopInstances.mockReset();
@@ -45,6 +55,17 @@ describe('teamname validation', () => {
       .post(`/balancer/teams/${teamname}/join`, {})
       .expect(shouldPassValidation ? 401 : 400);
   });
+
+  test.each(['01234567890123456789', 'TEAM', 'te++am', '-team', 'team-'])(
+    'invalid teamname "%s" should never reach instance creation',
+    async (teamname) => {
+      await request(app).post(`/balancer/teams/${teamname}/join`).send({}).expect(400);
+
+      expect(getJuiceShopInstanceForTeamname).not.toHaveBeenCalled();
+      expect(createNameSpaceForTeam).not.toHaveBeenCalled();
+      expect(createK8sDeploymentForTeam).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe('passcode validation', () => {
@@ -160,7 +181,7 @@ test('create team creates a instance for team via k8s service', async () => {
 
   await request(app)
     .post('/balancer/teams/team42/join')
-    .send({ hmacvalue: '4c8dd1f1306727c537aa96f0c59968b719740f2a30ccda92044ea59622565564' })
+    .send({ hmacvalue: validHmacFor('team42') })
     .expect(200)
     .then(({ body }) => {
       expect(body.message).toBe('Created Instance');
@@ -198,11 +219,25 @@ test('create team fails when namespace creation throws an error', async () => {
 
   await request(app)
     .post('/balancer/teams/team42/join')
-    .send({ hmacvalue: '4c8dd1f1306727c537aa96f0c59968b719740f2a30ccda92044ea59622565564' })
+    .send({ hmacvalue: validHmacFor('team42') })
     .expect(500);
 
   expect(createConfigmapForTeam).not.toHaveBeenCalled();
   expect(createSecretsfileForTeam).not.toHaveBeenCalled();
+});
+
+test('logout clears the team cookie', async () => {
+  await request(app)
+    .post('/balancer/teams/logout')
+    .expect(200)
+    .then((res) => {
+      expect(res.headers['set-cookie']).toEqual(
+        expect.arrayContaining([expect.stringContaining(`${get('cookieParser.cookieName')}=`)])
+      );
+      expect(res.headers['set-cookie']).toEqual(
+        expect.arrayContaining([expect.stringContaining('Expires=Thu, 01 Jan 1970 00:00:00 GMT')])
+      );
+    });
 });
 
 test('reset passcode needs authentication if no cookie is sent', async () => {

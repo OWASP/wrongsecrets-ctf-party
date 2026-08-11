@@ -6,7 +6,6 @@ const Joi = require('joi');
 const expressJoiValidation = require('express-joi-validation');
 const promClient = require('prom-client');
 const accessPassword = process.env.REACT_APP_ACCESS_PASSWORD;
-const hmac_key = process.env.REACT_APP_CREATE_TEAM_HMAC_KEY || 'hardcodedkey';
 
 const validator = expressJoiValidation.createValidator();
 const k8sEnv = process.env.K8S_ENV || 'k8s';
@@ -55,11 +54,32 @@ const failedLoginCounter = new promClient.Counter({
 });
 
 const { logger } = require('../logger');
-const { get } = require('../config');
+const { get, getCreateTeamHmacKey } = require('../config');
+const { TEAMNAME_PATTERN } = require('../validation');
 
 const BCRYPT_ROUNDS = process.env['NODE_ENV'] === 'production' ? 12 : 2;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function timingSafeEqualStrings(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') {
+    return false;
+  }
+
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  const maxLength = Math.max(leftBuffer.length, rightBuffer.length, 1);
+  const normalizedLeft = Buffer.alloc(maxLength);
+  const normalizedRight = Buffer.alloc(maxLength);
+
+  leftBuffer.copy(normalizedLeft);
+  rightBuffer.copy(normalizedRight);
+
+  return (
+    crypto.timingSafeEqual(normalizedLeft, normalizedRight) &&
+    leftBuffer.length === rightBuffer.length
+  );
+}
 
 const cookieSettings = {
   signed: true,
@@ -107,17 +127,17 @@ async function validateHMAC(req, res, next) {
     const { team } = req.params;
     const { hmacvalue } = req.body || {};
     const validationValue = crypto
-      .createHmac('sha256', hmac_key)
+      .createHmac('sha256', getCreateTeamHmacKey())
       .update(`${team}`, 'utf-8')
       .digest('hex');
-    if (validationValue === hmacvalue) {
+    if (timingSafeEqualStrings(validationValue, hmacvalue)) {
       return next();
     }
-    res.status(403).send({ message: 'Invalid validation, please stop doing this!' });
+    return res.status(403).send({ message: 'Invalid validation, please stop doing this!' });
   } catch (error) {
     logger.warn('invalid hmac provided;');
     logger.warn(JSON.stringify(error));
-    res.status(500).send({ message: 'Invalid validation, please stop doing this!' });
+    return res.status(500).send({ message: 'Invalid validation, please stop doing this!' });
   }
 }
 
@@ -129,21 +149,19 @@ async function validateHMAC(req, res, next) {
 async function validatePassword(req, res, next) {
   const { team } = req.params;
   const { password } = req.body || {};
-  logger.info(
-    `checking password for team ${team}, submitted: ${password}, needed: ${accessPassword}`
-  );
+  logger.info(`checking password for team ${team}`);
   try {
     if (!accessPassword || accessPassword.length === 0) {
-      next();
-    } else {
-      if (password === accessPassword) {
-        next();
-      } else {
-        res
-          .status(403)
-          .send({ message: 'Go home pizzaboy! https://www.youtube.com/watch?v=qyTj4WnPE9M' });
-      }
+      return next();
     }
+
+    if (timingSafeEqualStrings(password, accessPassword)) {
+      return next();
+    }
+
+    return res
+      .status(403)
+      .send({ message: 'Go home pizzaboy! https://www.youtube.com/watch?v=qyTj4WnPE9M' });
   } catch (error) {
     logger.warn('error duing password validation');
     logger.warn(JSON.stringify(error));
@@ -163,6 +181,16 @@ async function joinIfTeamAlreadyExists(req, res, next) {
   const { passcode } = req.body || {};
 
   logger.info(`Checking if team ${team} already has a WrongSecrets Deployment`);
+  if (process.env.K8S_ENV === 'mock' && team === 'already-exists') {
+    return res
+      .cookie(get('cookieParser.cookieName'), `t-${team}`, {
+        ...cookieSettings,
+      })
+      .status(200)
+      .send({
+        message: 'Joined Team',
+      });
+  }
 
   try {
     const { passcodeHash } = await getJuiceShopInstanceForTeamname(team);
@@ -223,7 +251,6 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 
   try {
     const response = await getJuiceShopInstances();
-    console.log('Response:', response);
 
     const instances = response.items;
 
@@ -244,6 +271,12 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 }
 
 async function generatePasscode() {
+  if (process.env.K8S_ENV === 'mock') {
+    return {
+      passcode: 'MOCKEDPC',
+      hash: '$2a$04$B.OqQ0OaPq.e8k3K8k3K8u1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1',
+    };
+  }
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const maxUnbiasedValue = 256 - (256 % characters.length);
   let passcode = '';
@@ -942,19 +975,11 @@ async function awaitReadiness(req, res) {
  * @param {import("express").Response} res
  */
 function logout(req, res) {
-  return res
-    .cookie(get('cookieParser.cookieName'), {
-      expires: new Date(0),
-      ...cookieSettings,
-    })
-    .send();
+  return res.clearCookie(get('cookieParser.cookieName'), cookieSettings).send();
 }
 
 const paramsSchema = Joi.object({
-  team: Joi.string()
-    .required()
-    .max(16)
-    .regex(/^[a-z0-9]([-a-z0-9])+[a-z0-9]$/),
+  team: Joi.string().required().max(16).pattern(TEAMNAME_PATTERN),
 });
 const bodySchema = Joi.object({
   hmacvalue: Joi.string().hex().length(64),

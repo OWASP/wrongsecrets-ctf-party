@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 
 const { get, extractTeamName } = require('../config');
 const { logger } = require('../logger');
+const { isValidTeamname } = require('../validation');
 const {
   getJuiceShopInstanceForTeamname,
   updateLastRequestTimestampForTeam,
@@ -59,14 +60,6 @@ function redirectAdminTrafficToBalancerPage(req, res, next) {
 }
 
 const connectionCache = new Map();
-
-function isValidTeamname(teamname) {
-  if (typeof teamname !== 'string' || teamname.length === 0) {
-    return false;
-  }
-  return /^[a-z0-9]([-a-z0-9])+[a-z0-9]$/i.test(teamname);
-}
-
 function shouldProxyUpgradeToVirtualDesktop(requestUrl) {
   const { pathname } = new URL(requestUrl, 'http://localhost');
   return (
@@ -89,6 +82,11 @@ function requestLooksLikeDesktopUpgrade(req) {
 
   const referer = req.headers?.referer || req.headers?.Referer || '';
   return String(referer).includes('/?desktop');
+}
+
+function redirectToBalancerWithMessage(res, message, teamname) {
+  const encodedTeamname = encodeURIComponent(teamname);
+  return res.redirect(`/balancer/?msg=${message}&teamname=${encodedTeamname}`);
 }
 
 function handleUpgradeRequest(req, socket, head) {
@@ -144,11 +142,11 @@ async function checkIfInstanceIsUp(req, res, next) {
     }
 
     logger.warn(`Tried to proxy for team ${teamname}, but no ready instance found.`);
-    return res.redirect(`/balancer/?msg=instance-restarting&teamname=${teamname}`);
+    return redirectToBalancerWithMessage(res, 'instance-restarting', teamname);
   } catch (error) {
     logger.warn(`Could not find instance for team: '${teamname}'`);
     logger.warn(JSON.stringify(error));
-    res.redirect(`/balancer/?msg=instance-not-found&teamname=${teamname}`);
+    return redirectToBalancerWithMessage(res, 'instance-not-found', teamname);
   }
 }
 
@@ -187,9 +185,8 @@ async function updateLastConnectTimestamp(req, res, next) {
  */
 function proxyTrafficToJuiceShop(req, res) {
   const teamname = req.teamname;
-  const regex = new RegExp('^[a-z0-9-]+$');
-  if (!regex.test(teamname)) {
-    logger.info(`Got malformed teamname: ${teamname}s`);
+  if (!isValidTeamname(teamname)) {
+    logger.info(`Got malformed teamname: ${teamname}`);
     return res.redirect('/balancer/');
   }
   const currentReferrerForDesktop = '/?desktop';

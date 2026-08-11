@@ -78,8 +78,8 @@ export const JoinPage = () => {
       }
     } catch (error) {
       if (
-        error.response.status === 401 &&
-        error.response.data.message === 'Team requires authentication to join'
+        error?.response?.status === 401 &&
+        error?.response?.data?.message === 'Team requires authentication to join'
       ) {
         navigate(`/teams/${teamname}/joining/`);
       } else {
@@ -255,7 +255,8 @@ export const JoinPage = () => {
             name="teamname"
             value={teamname}
             title={formatMessage(messages.teamnameValidationConstraints)}
-            pattern="^[a-z0-9][a-z0-9\-]+[a-z0-9]$"
+            pattern="^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$"
+            required
             maxLength="16"
             onChange={({ target }) => setTeamname(target.value)}
           />

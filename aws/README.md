@@ -89,7 +89,8 @@ Example local workflow:
 
 ```shell
 TEAM=ctfgen$RANDOM
-HMAC=$(printf "%s" "$TEAM" | openssl dgst -sha256 -hmac hardcodedkey | awk '{print $2}')
+HMAC_KEY=$(kubectl get secret wrongsecrets-balancer-secret -o=jsonpath='{.data.createTeamHmacKey}' | base64 --decode)
+HMAC=$(printf "%s" "$TEAM" | openssl dgst -sha256 -hmac "$HMAC_KEY" | awk '{print $2}')
 
 # Create or join the team via balancer
 curl -sS -H 'Content-Type: application/json' \

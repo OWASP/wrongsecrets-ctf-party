@@ -4,17 +4,24 @@ on:
     branches: [ main ]
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   e2e-test:
     name: Run Cypress E2E Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '24'
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: |
+            wrongsecrets-balancer/package-lock.json
+            wrongsecrets-balancer/ui/package-lock.json
       - name: Start Minikube
         uses: medyagh/setup-minikube@latest
         with:
@@ -23,7 +30,7 @@ jobs:
           memory: '8000'
           kubernetes-version: 'v1.32.0'
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v5
       - name: Install yq
         run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
       - name: Build and deploy (non-interactive)
@@ -33,7 +40,7 @@ jobs:
       - name: Export admin password for Cypress
         run: echo "CYPRESS_ADMIN_PASSWORD=$(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}' | base64 --decode)" >> "$GITHUB_ENV"
       - name: Run Cypress E2E Tests
-        uses: cypress-io/github-action@v6
+        uses: cypress-io/github-action@v7
         with:
           working-directory: wrongsecrets-balancer
           install: true

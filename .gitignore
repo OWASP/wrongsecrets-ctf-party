@@ -16,6 +16,7 @@ db.zip
 .idea
 .DS_Store
 .letsencrypt
+.output.txt
 
 *.auto.tfvars
 node_modules

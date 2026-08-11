@@ -12,7 +12,7 @@ checkCommandsAvailable helm docker kubectl yq
 
 version="$(uuidgen)"
 eval $(minikube docker-env)
-mapfile -t _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml)
+IFS=$'\n' read -d '' -r -a _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml && printf '\0')
 WRONGSECRETS_IMAGE="${_vals[0]}"
 WRONGSECRETS_TAG="${_vals[1]}"
 WEBTOP_IMAGE="${_vals[2]}"

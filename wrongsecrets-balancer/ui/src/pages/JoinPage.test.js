@@ -67,6 +67,16 @@ describe('JoinPage', () => {
     });
   }
 
+  function setInputValue(input, value) {
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    ).set;
+
+    valueSetter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   test('renders the join form with translated labels', async () => {
     await renderJoinPage();
 
@@ -86,5 +96,36 @@ describe('JoinPage', () => {
     await renderJoinPage();
 
     expect(container.querySelector('input[name="password"]')).not.toBeNull();
+  });
+
+  test('keeps the teamname field constrained to valid team names', async () => {
+    await renderJoinPage();
+
+    const teamnameInput = container.querySelector('input[name="teamname"]');
+
+    expect(teamnameInput.getAttribute('pattern')).toBe('^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$');
+    expect(teamnameInput.getAttribute('maxlength')).toBe('16');
+    expect(teamnameInput.getAttribute('title')).toBe(
+      "Teamnames must consist of lowercase letter, number or '-'"
+    );
+  });
+
+  test('shows a failure message when the join request fails without a response', async () => {
+    axios.post.mockRejectedValue(new Error('Network error'));
+
+    await renderJoinPage();
+
+    const teamnameInput = container.querySelector('input[name="teamname"]');
+    const form = container.querySelector('form');
+
+    await act(async () => {
+      setInputValue(teamnameInput, 'admin');
+    });
+
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(container.textContent).toContain('Failed to create / join the team');
   });
 });

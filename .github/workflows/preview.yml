@@ -6,6 +6,9 @@ on:
     types: [opened, synchronize, reopened]
   push:
     branches: [main]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -74,6 +77,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=${{ github.workflow }}-${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-${{ matrix.component }}
 
   generate-preview-instructions:
     name: "Generate Preview Instructions"
