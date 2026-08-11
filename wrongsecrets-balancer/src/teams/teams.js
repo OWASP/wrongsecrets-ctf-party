@@ -57,6 +57,7 @@ const { logger } = require('../logger');
 const { get, getCreateTeamHmacKey } = require('../config');
 
 const BCRYPT_ROUNDS = process.env['NODE_ENV'] === 'production' ? 12 : 2;
+const TEAMNAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -67,11 +68,17 @@ function timingSafeEqualStrings(left, right) {
 
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
-  if (leftBuffer.length !== rightBuffer.length) {
-    return false;
-  }
+  const maxLength = Math.max(leftBuffer.length, rightBuffer.length, 1);
+  const normalizedLeft = Buffer.alloc(maxLength);
+  const normalizedRight = Buffer.alloc(maxLength);
 
-  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+  leftBuffer.copy(normalizedLeft);
+  rightBuffer.copy(normalizedRight);
+
+  return (
+    crypto.timingSafeEqual(normalizedLeft, normalizedRight) &&
+    leftBuffer.length === rightBuffer.length
+  );
 }
 
 const cookieSettings = {
@@ -956,10 +963,7 @@ function logout(req, res) {
 }
 
 const paramsSchema = Joi.object({
-  team: Joi.string()
-    .required()
-    .max(16)
-    .regex(/^[a-z0-9]([-a-z0-9])+[a-z0-9]$/),
+  team: Joi.string().required().max(16).pattern(TEAMNAME_PATTERN),
 });
 const bodySchema = Joi.object({
   hmacvalue: Joi.string().hex().length(64),

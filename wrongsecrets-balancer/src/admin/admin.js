@@ -4,6 +4,7 @@ const expressJoiValidation = require('express-joi-validation');
 
 const router = express.Router();
 const validator = expressJoiValidation.createValidator();
+const TEAMNAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 const {
   getJuiceShopInstances,
@@ -17,10 +18,7 @@ const { get } = require('../config');
 const { logger } = require('../logger');
 
 const paramsSchema = Joi.object({
-  team: Joi.string()
-    .required()
-    .max(16)
-    .pattern(/^[a-z0-9]([-a-z0-9])+[a-z0-9]$/),
+  team: Joi.string().required().max(16).pattern(TEAMNAME_PATTERN),
 });
 
 /**
@@ -30,7 +28,7 @@ const paramsSchema = Joi.object({
  */
 function ensureAdminLogin(req, res, next) {
   logger.debug('Running admin check');
-  if (!/^t-[a-z0-9]([-a-z0-9])+[a-z0-9]$/i.test(req.teamname || '')) {
+  if (!new RegExp(`^t-${TEAMNAME_PATTERN.source.slice(1, -1)}$`).test(req.teamname || '')) {
     return res.status(401).send();
   }
 
