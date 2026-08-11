@@ -20,7 +20,7 @@ Note that we:
 
 ## Special thanks
 
-Special thanks to [@commjoen](https://github.com/commjoen), [@madhuakula](https://github.com/madhuakula), [@bendehaan](https://github.com/bendehaan), and [@mikewoudenberg](https://github.com/mikewoudenberg), and [@osamamagdy](https://github.com/osamamagdy) for making this port a reality!
+Special thanks to [@commjoen](https://github.com/commjoen), [@madhuakula](https://github.com/madhuakula), [@bendehaan](https://github.com/bendehaan), and [@mikewoudenberg](https://github.com/mikewoudenberg), [@osamamagdy](https://github.com/osamamagdy), [@seershan](https://github.com/seershan) and [@youknowme19](https://github.com/youknowme19) for making this port a reality!
 
 ### Sponsorships
 
