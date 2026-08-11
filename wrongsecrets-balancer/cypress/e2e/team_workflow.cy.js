@@ -16,6 +16,8 @@ describe('Team Creation and Joining Workflow', () => {
     cy.wait('@createTeamRequest').then((interception) => {
       expect(interception.response.statusCode).to.eq(200);
 
+      // The passcode is hidden behind a hover in the UI.
+      // We use .invoke('text') which works even if the element is display:none.
       cy.get('[data-test-id="passcode-display"]')
         .invoke('text')
         .then((displayedPasscode) => {
@@ -24,6 +26,7 @@ describe('Team Creation and Joining Workflow', () => {
           expect(passcode).to.match(/^[A-Z0-9]{8}$/);
 
           cy.clearCookies();
+          cy.clearLocalStorage();
 
           // Now that we have the real passcode, go back to the homepage.
           cy.visit('http://localhost:3000');
@@ -34,13 +37,13 @@ describe('Team Creation and Joining Workflow', () => {
 
           // On the "Joining team" page, type the real passcode we captured.
           cy.get('[data-test-id="passcode-input"]').type(passcode);
-          cy.contains('button', 'Join Team').click();
+          cy.get('[data-test-id="join-team-button"]').click();
 
           // === PART 3: FINAL VERIFICATION (with a long timeout) ===
           // Instead of waiting for a network call, we wait directly for the final button to appear.
           // We give it up to 2 minutes (120000ms) for the backend instance to get ready.
-          cy.contains('Start Hacking', { timeout: 120000 }).should('be.visible');
-          cy.contains('Start your Webtop').should('be.visible');
+          cy.get('[data-test-id="start-hacking-button"]', { timeout: 120000 }).should('be.visible');
+          cy.get('[data-test-id="start-desktop-button"]').should('be.visible');
         });
     });
   });

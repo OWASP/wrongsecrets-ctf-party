@@ -16,7 +16,7 @@ describe('Admin Login', () => {
 
     // On the next page, type the admin password.
     cy.get('[data-test-id="passcode-input"]').type(adminPassword);
-    cy.contains('button', 'Join Team').click();
+    cy.get('[data-test-id="join-team-button"]').click();
 
     // Verify that the admin page has loaded. We give it a longer timeout (10 seconds)
     // because the list of teams might take a moment to load from the server.
