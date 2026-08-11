@@ -14,11 +14,13 @@ logger.info(`K8S_ENV: ${process.env.K8S_ENV}`);
 if (process.env.K8S_ENV !== 'mock') {
   try {
     kc.loadFromCluster();
-  } catch (e) {
-    logger.warn('Failed to load Kubernetes config from cluster, falling back to default if not in mock mode');
+  } catch {
+    logger.warn(
+      'Failed to load Kubernetes config from cluster, falling back to default if not in mock mode'
+    );
     try {
       kc.loadFromDefault();
-    } catch (e2) {
+    } catch {
       logger.error('Failed to load Kubernetes config');
     }
   }

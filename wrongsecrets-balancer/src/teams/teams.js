@@ -272,7 +272,10 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 
 async function generatePasscode() {
   if (process.env.K8S_ENV === 'mock') {
-    return { passcode: 'MOCKEDPC', hash: '$2a$04$B.OqQ0OaPq.e8k3K8k3K8u1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1' };
+    return {
+      passcode: 'MOCKEDPC',
+      hash: '$2a$04$B.OqQ0OaPq.e8k3K8k3K8u1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1',
+    };
   }
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const maxUnbiasedValue = 256 - (256 % characters.length);
