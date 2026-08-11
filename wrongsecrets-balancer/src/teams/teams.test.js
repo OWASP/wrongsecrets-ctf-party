@@ -59,10 +59,7 @@ describe('teamname validation', () => {
   test.each(['01234567890123456789', 'TEAM', 'te++am', '-team', 'team-'])(
     'invalid teamname "%s" should never reach instance creation',
     async (teamname) => {
-      await request(app)
-        .post(`/balancer/teams/${teamname}/join`)
-        .send({ hmacvalue: validHmacFor('team42') })
-        .expect(400);
+      await request(app).post(`/balancer/teams/${teamname}/join`).send({}).expect(400);
 
       expect(getJuiceShopInstanceForTeamname).not.toHaveBeenCalled();
       expect(createNameSpaceForTeam).not.toHaveBeenCalled();
