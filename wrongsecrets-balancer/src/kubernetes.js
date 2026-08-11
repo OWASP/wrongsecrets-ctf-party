@@ -1978,20 +1978,22 @@ const createRoleForWebTop = async (team) => {
         resources: ['configmaps'],
         verbs: ['get', 'list'],
       },
-      ...(podName ? [
-        {
-          apiGroups: [''],
-          resources: ['pods/exec'],
-          verbs: ['create'],
-          resourceNames: [podName],
-        },
-        {
-          apiGroups: [''],
-          resources: ['pods'],
-          verbs: ['patch', 'update'],
-          resourceNames: [podName],
-        },
-      ] : []),
+      ...(podName
+        ? [
+            {
+              apiGroups: [''],
+              resources: ['pods/exec'],
+              verbs: ['create'],
+              resourceNames: [podName],
+            },
+            {
+              apiGroups: [''],
+              resources: ['pods'],
+              verbs: ['patch', 'update'],
+              resourceNames: [podName],
+            },
+          ]
+        : []),
       {
         apiGroups: [''],
         resources: ['pod', 'pods', 'pods/log'],
