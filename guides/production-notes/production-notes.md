@@ -9,7 +9,7 @@ To ensure Wrongsecrets CTF Party runs as smoothly during your CTF's / trainings 
 5. When running a CTF with WrongSecrets challenge flags, make sure to change `juiceShop.ctfKey` from the default. Otherwise users will be able to generate their own flags relatively easily. See
 6. When using prometheus metrics, e.g. when you have followed the [Monitoring SetUp Guide](https://github.com/iteratec/multi-juicer/blob/main/guides/monitoring-setup/monitoring.md) you'll want to change `balancer.metrics.basicAuth.password` to a non default values. Otherwise users can use the default value to access the technical metrics of the Wrongsecrets-balancers pods.
 7. If you host this CTF in a public domain, change the `balancer.env.REACT_APP_ACCESS_PASSWORD` to a password you communicate to your users at the start of teh CTF.
-8. Make sure to rotate the `balancer.env.REACT_APP_CREATE_TEAM_HMAC_KEY` HMAC key for anti-infra-creation-fuzzing as well into something else than 'hardcodedkey' when you see players generating 100s of instances in minutes.
+8. Set `balancer.env.REACT_APP_CREATE_TEAM_HMAC_KEY` explicitly if you want the same create-team HMAC key to survive upgrades. If you leave it empty, Helm generates one for you automatically on install, but a future `helm upgrade` can rotate it and invalidate old clients still holding the previous value.
 
 ## TLDR
 

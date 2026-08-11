@@ -34,4 +34,18 @@ describe('Team Creation and Joining Workflow', () => {
       cy.contains('Start your Webtop').should('be.visible');
     });
   });
+
+  it('should block invalid team names before creating a team', () => {
+    cy.intercept('POST', '**/balancer/teams/**/join').as('joinRequest');
+
+    cy.visit('http://localhost:3000');
+    cy.get('[data-test-id="teamname-input"]').type('TEAM');
+    cy.get('[data-test-id="teamname-input"]').then(($input) => {
+      expect($input[0].checkValidity()).to.eq(false);
+    });
+    cy.get('[data-test-id="create-join-team-button"]').click();
+
+    cy.contains('Failed to create / join the team').should('not.exist');
+    cy.get('@joinRequest.all').should('have.length', 0);
+  });
 });

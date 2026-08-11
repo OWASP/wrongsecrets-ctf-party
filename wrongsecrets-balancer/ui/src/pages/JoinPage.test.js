@@ -87,4 +87,16 @@ describe('JoinPage', () => {
 
     expect(container.querySelector('input[name="password"]')).not.toBeNull();
   });
+
+  test('keeps the teamname field constrained to valid team names', async () => {
+    await renderJoinPage();
+
+    const teamnameInput = container.querySelector('input[name="teamname"]');
+
+    expect(teamnameInput.getAttribute('pattern')).toBe('^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$');
+    expect(teamnameInput.getAttribute('maxLength')).toBe('16');
+    expect(teamnameInput.getAttribute('title')).toBe(
+      "Teamnames must consist of lowercase letter, number or '-'"
+    );
+  });
 });

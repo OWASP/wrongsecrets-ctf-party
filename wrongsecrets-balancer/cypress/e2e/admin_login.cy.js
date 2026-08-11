@@ -1,8 +1,9 @@
 describe('Admin Login', () => {
   it('should allow the admin to log in through the main page', () => {
-    // NOTE: The admin password changes every time you deploy.
-    // You must get the new password from the terminal before running this test.
-    const adminPassword = 'RSX9I94K';
+    const adminPassword = Cypress.env('ADMIN_PASSWORD');
+
+    expect(adminPassword, 'admin password for the deployed balancer').to.be.a('string').and.not.be
+      .empty;
 
     // Visit the homepage to log in.
     cy.visit('http://localhost:3000');

@@ -14,6 +14,9 @@ env:
   HELM_DOCS_VERSION: "1.11.0"
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   pre-commit:
     if: github.event.action != 'labeled' || github.event.label.name == 'pre-commit ci run'
@@ -30,6 +33,12 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            cleaner/package-lock.json
+            wrongsecrets-balancer/package-lock.json
+            wrongsecrets-balancer/ui/package-lock.json
       - name: Setup python
         uses: actions/setup-python@v6
         with:

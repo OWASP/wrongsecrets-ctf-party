@@ -2,6 +2,9 @@ name: 'WrongSecrets CTF Party: E2E Tests'
 on:
   pull_request:
     branches: [ main ]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   e2e-test:
     name: Run Cypress E2E Tests
@@ -13,6 +16,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            wrongsecrets-balancer/package-lock.json
+            wrongsecrets-balancer/ui/package-lock.json
       - name: Start Minikube
         uses: medyagh/setup-minikube@latest
         with:

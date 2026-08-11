@@ -4,6 +4,9 @@ on:
     types: [published]
 
 name: "Publish Docker Images"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   helmRelease:
     name: "Package Helm Chart"
@@ -103,3 +106,5 @@ jobs:
           push: true
           tags: ${{ steps.docker_meta.outputs.tags }}
           labels: ${{ steps.docker_meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ github.workflow }}-${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ github.workflow }}-${{ matrix.component }}

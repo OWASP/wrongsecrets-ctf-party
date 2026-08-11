@@ -41,13 +41,20 @@ spec:
           {{- end }}
           env:
             {{- range $k, $v := .Values.balancer.env}}
+            {{- if ne $k "REACT_APP_CREATE_TEAM_HMAC_KEY" }}
             - name: {{ $k }}
               value: {{ $v | quote }}
+            {{- end }}
             {{- end }}
             - name: WRONGSECRETS_TAG
               value: {{ .Values.wrongsecrets.tag}}
             - name: WRONGSECRETS_DESKTOP_TAG
               value: {{ .Values.virtualdesktop.tag }}
+            - name: REACT_APP_CREATE_TEAM_HMAC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wrongsecrets-balancer-secret
+                  key: createTeamHmacKey
             - name: COOKIEPARSER_SECRET
               valueFrom:
                 secretKeyRef:
