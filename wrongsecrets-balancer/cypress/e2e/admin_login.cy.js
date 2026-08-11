@@ -3,9 +3,9 @@ describe('Admin Login', () => {
     // In CI this comes from CYPRESS_ADMIN_PASSWORD; set ADMIN_PASSWORD locally via Cypress envs.
     const adminPassword = Cypress.env('ADMIN_PASSWORD');
 
-    cy.wrap(adminPassword, { log: false })
-      .should('be.a', 'string')
-      .and('not.be.empty');
+    expect(adminPassword, 'CYPRESS_ADMIN_PASSWORD must be set')
+      .to.be.a('string')
+      .and.not.be.empty;
 
     // Visit the homepage to log in.
     cy.visit('http://localhost:3000');
