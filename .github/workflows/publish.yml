@@ -6,7 +6,7 @@ on:
 name: "Publish Docker Images"
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   helmRelease:
     name: "Package Helm Chart"
