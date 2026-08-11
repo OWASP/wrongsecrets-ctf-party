@@ -67,6 +67,16 @@ describe('JoinPage', () => {
     });
   }
 
+  function setInputValue(input, value) {
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    ).set;
+
+    valueSetter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   test('renders the join form with translated labels', async () => {
     await renderJoinPage();
 
@@ -109,9 +119,7 @@ describe('JoinPage', () => {
     const form = container.querySelector('form');
 
     await act(async () => {
-      teamnameInput.value = 'admin';
-      teamnameInput.dispatchEvent(new Event('input', { bubbles: true }));
-      teamnameInput.dispatchEvent(new Event('change', { bubbles: true }));
+      setInputValue(teamnameInput, 'admin');
     });
 
     await act(async () => {
