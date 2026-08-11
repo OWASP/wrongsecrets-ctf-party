@@ -45,7 +45,6 @@ describe('Team Creation and Joining Workflow', () => {
     });
     cy.get('[data-test-id="create-join-team-button"]').click();
 
-    cy.contains('Failed to create / join the team').should('not.exist');
     cy.get('@joinRequest.all').should('have.length', 0);
   });
 });

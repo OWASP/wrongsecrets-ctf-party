@@ -2,8 +2,9 @@ describe('Admin Login', () => {
   it('should allow the admin to log in through the main page', () => {
     const adminPassword = Cypress.env('ADMIN_PASSWORD');
 
-    expect(adminPassword, 'admin password for the deployed balancer').to.be.a('string').and.not.be
-      .empty;
+    cy.wrap(adminPassword, { log: false })
+      .should('be.a', 'string')
+      .and('not.be.empty');
 
     // Visit the homepage to log in.
     cy.visit('http://localhost:3000');
