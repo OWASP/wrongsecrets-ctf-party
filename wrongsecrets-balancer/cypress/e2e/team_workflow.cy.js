@@ -7,7 +7,7 @@ describe('Team Creation and Joining Workflow', () => {
     cy.intercept('POST', `/balancer/teams/${teamName}/join`).as('createTeamRequest');
 
     // === PART 1: CREATE THE TEAM ===
-    cy.visit('http://localhost:3000');
+    cy.visit('/');
     cy.get('[data-test-id="teamname-input"]').type(teamName);
     cy.get('[data-test-id="create-join-team-button"]').click();
 
@@ -16,9 +16,11 @@ describe('Team Creation and Joining Workflow', () => {
     cy.wait('@createTeamRequest').then((interception) => {
       expect(interception.response.statusCode).to.eq(200);
 
-      // The passcode is hidden behind a hover in the UI.
-      // We use .invoke('text') which works even if the element is display:none.
-      cy.get('[data-test-id="passcode-display"]')
+      // The passcode is hidden behind a hover in the UI (display: none by default).
+      // We use { force: true } if we wanted to click it, but here we just need its text.
+      // Cypress's .invoke('text') will work on hidden elements.
+      // We should wait for the element to exist in the DOM first.
+      cy.get('[data-test-id="passcode-display"]', { timeout: 10000 })
         .invoke('text')
         .then((displayedPasscode) => {
           const passcode = displayedPasscode.replace(/\s+/g, '');
@@ -29,14 +31,14 @@ describe('Team Creation and Joining Workflow', () => {
           cy.clearLocalStorage();
 
           // Now that we have the real passcode, go back to the homepage.
-          cy.visit('http://localhost:3000');
+          cy.visit('/');
 
           // Enter the same unique team name again.
           cy.get('[data-test-id="teamname-input"]').type(teamName);
           cy.get('[data-test-id="create-join-team-button"]').click();
 
           // On the "Joining team" page, type the real passcode we captured.
-          cy.get('[data-test-id="passcode-input"]').type(passcode);
+          cy.get('[data-test-id="passcode-input"]', { timeout: 15000 }).should('be.visible').type(passcode);
           cy.get('[data-test-id="join-team-button"]').click();
 
           // === PART 3: FINAL VERIFICATION (with a long timeout) ===
@@ -51,7 +53,7 @@ describe('Team Creation and Joining Workflow', () => {
   it('should block invalid team names before creating a team', () => {
     cy.intercept('POST', '**/balancer/teams/*/join').as('joinRequest');
 
-    cy.visit('http://localhost:3000');
+    cy.visit('/');
     cy.get('[data-test-id="teamname-input"]').type('TEAM');
     cy.get('[data-test-id="teamname-input"]').should(($input) => {
       expect($input[0].checkValidity()).to.eq(false);
