@@ -170,7 +170,7 @@ test('should redirect to /balancer/ when the instance is not existing', async ()
 
 test('should reject admin actions for malformed team names', async () => {
   await request(app)
-    .post('/balancer/admin/teams/../../restart')
+    .post('/balancer/admin/teams/TEAM/restart')
     .set('Cookie', [`${get('cookieParser.cookieName')}=t-${get('admin.username')}`])
     .expect(400);
 });
