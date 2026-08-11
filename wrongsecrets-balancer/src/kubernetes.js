@@ -9,6 +9,7 @@ const {
 } = require('@kubernetes/client-node');
 
 const kc = new KubeConfig();
+const { logger } = require('./logger');
 logger.info(`K8S_ENV: ${process.env.K8S_ENV}`);
 if (process.env.K8S_ENV !== 'mock') {
   try {
@@ -88,7 +89,6 @@ const wrongSecretsDekstopTag = process.env.WRONGSECRETS_DESKTOP_TAG;
 const heroku_wrongsecret_ctf_url = process.env.REACT_APP_HEROKU_WRONGSECRETS_URL;
 
 const { get } = require('./config');
-const { logger } = require('./logger');
 
 // Add input validation helper function
 // Enhanced validateTeamName function with better error handling
