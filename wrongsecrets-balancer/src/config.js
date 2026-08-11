@@ -4,6 +4,8 @@ const lodashGet = require('lodash/get');
 const memoize = require('lodash/memoize');
 const { logger } = require('./logger');
 
+const INSECURE_DEFAULT_ADMIN_PASSWORD = config.admin.password;
+const INSECURE_DEFAULT_COOKIE_SECRET = config.cookieParser.secret;
 const generatedSensitiveConfigValues = new Map();
 
 const getGeneratedSensitiveValue = (name, bytes, message) => {
@@ -27,7 +29,7 @@ const fetchConfigValue = (name, defaultValue) => {
   }
 
   const configValue = lodashGet(config, name, defaultValue);
-  if (name === 'admin.password' && configValue === '12345678') {
+  if (name === 'admin.password' && configValue === INSECURE_DEFAULT_ADMIN_PASSWORD) {
     return getGeneratedSensitiveValue(
       name,
       16,
@@ -35,7 +37,7 @@ const fetchConfigValue = (name, defaultValue) => {
     );
   }
 
-  if (name === 'cookieParser.secret' && configValue === 'askdbakhdajhvdsjavjdsgv') {
+  if (name === 'cookieParser.secret' && configValue === INSECURE_DEFAULT_COOKIE_SECRET) {
     return getGeneratedSensitiveValue(
       name,
       24,
