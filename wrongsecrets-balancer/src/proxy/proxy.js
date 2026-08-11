@@ -91,6 +91,11 @@ function requestLooksLikeDesktopUpgrade(req) {
   return String(referer).includes('/?desktop');
 }
 
+function redirectToBalancerWithMessage(res, message, teamname) {
+  const encodedTeamname = encodeURIComponent(teamname);
+  return res.redirect(`/balancer/?msg=${message}&teamname=${encodedTeamname}`);
+}
+
 function handleUpgradeRequest(req, socket, head) {
   if (!requestLooksLikeDesktopUpgrade(req)) {
     socket.destroy();
@@ -144,11 +149,11 @@ async function checkIfInstanceIsUp(req, res, next) {
     }
 
     logger.warn(`Tried to proxy for team ${teamname}, but no ready instance found.`);
-    return res.redirect(`/balancer/?msg=instance-restarting&teamname=${teamname}`);
+    return redirectToBalancerWithMessage(res, 'instance-restarting', teamname);
   } catch (error) {
     logger.warn(`Could not find instance for team: '${teamname}'`);
     logger.warn(JSON.stringify(error));
-    res.redirect(`/balancer/?msg=instance-not-found&teamname=${teamname}`);
+    return redirectToBalancerWithMessage(res, 'instance-not-found', teamname);
   }
 }
 

@@ -30,6 +30,10 @@ const paramsSchema = Joi.object({
  */
 function ensureAdminLogin(req, res, next) {
   logger.debug('Running admin check');
+  if (!/^t-[a-z0-9]([-a-z0-9])+[a-z0-9]$/i.test(req.teamname || '')) {
+    return res.status(401).send();
+  }
+
   if (req.teamname === `t-${get('admin.username')}`) {
     logger.debug('Admin check succeeded');
     return next();

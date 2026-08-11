@@ -4,13 +4,46 @@ const lodashGet = require('lodash/get');
 const memoize = require('lodash/memoize');
 const { logger } = require('./logger');
 
+const generatedSensitiveConfigValues = new Map();
+
+const getGeneratedSensitiveValue = (name, bytes, message) => {
+  if (!generatedSensitiveConfigValues.has(name)) {
+    generatedSensitiveConfigValues.set(name, crypto.randomBytes(bytes).toString('hex'));
+    logger.warn(message);
+  }
+
+  return generatedSensitiveConfigValues.get(name);
+};
+
 const fetchConfigValue = (name, defaultValue) => {
   const envVarName = name
     .split('.')
     .map((string) => string.toUpperCase())
     .join('_');
 
-  return process.env[envVarName] || lodashGet(config, name, defaultValue);
+  const envValue = process.env[envVarName];
+  if (envValue) {
+    return envValue;
+  }
+
+  const configValue = lodashGet(config, name, defaultValue);
+  if (name === 'admin.password' && configValue === '12345678') {
+    return getGeneratedSensitiveValue(
+      name,
+      16,
+      'ADMIN_PASSWORD is not set; using an ephemeral per-process admin password.'
+    );
+  }
+
+  if (name === 'cookieParser.secret' && configValue === 'askdbakhdajhvdsjavjdsgv') {
+    return getGeneratedSensitiveValue(
+      name,
+      24,
+      'COOKIEPARSER_SECRET is not set; using an ephemeral per-process cookie signing secret.'
+    );
+  }
+
+  return configValue;
 };
 
 const get = memoize(fetchConfigValue);

@@ -60,6 +60,20 @@ const BCRYPT_ROUNDS = process.env['NODE_ENV'] === 'production' ? 12 : 2;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function timingSafeEqualStrings(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') {
+    return false;
+  }
+
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
+}
+
 const cookieSettings = {
   signed: true,
   httpOnly: true,
@@ -109,11 +123,7 @@ async function validateHMAC(req, res, next) {
       .createHmac('sha256', getCreateTeamHmacKey())
       .update(`${team}`, 'utf-8')
       .digest('hex');
-    if (
-      typeof hmacvalue === 'string' &&
-      hmacvalue.length === validationValue.length &&
-      crypto.timingSafeEqual(Buffer.from(validationValue), Buffer.from(hmacvalue))
-    ) {
+    if (timingSafeEqualStrings(validationValue, hmacvalue)) {
       return next();
     }
     return res.status(403).send({ message: 'Invalid validation, please stop doing this!' });
@@ -138,7 +148,7 @@ async function validatePassword(req, res, next) {
       return next();
     }
 
-    if (password === accessPassword) {
+    if (timingSafeEqualStrings(password, accessPassword)) {
       return next();
     }
 
