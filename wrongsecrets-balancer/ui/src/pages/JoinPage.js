@@ -78,7 +78,7 @@ export const JoinPage = () => {
       }
     } catch (error) {
       if (
-        error.response.status === 401 &&
+        error?.response?.status === 401 &&
         error.response.data.message === 'Team requires authentication to join'
       ) {
         navigate(`/teams/${teamname}/joining/`);

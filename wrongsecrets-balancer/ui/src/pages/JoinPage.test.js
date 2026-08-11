@@ -99,4 +99,25 @@ describe('JoinPage', () => {
       "Teamnames must consist of lowercase letter, number or '-'"
     );
   });
+
+  test('shows a failure message when the join request fails without a response', async () => {
+    axios.post.mockRejectedValue(new Error('Network error'));
+
+    await renderJoinPage();
+
+    const teamnameInput = container.querySelector('input[name="teamname"]');
+    const form = container.querySelector('form');
+
+    await act(async () => {
+      teamnameInput.value = 'admin';
+      teamnameInput.dispatchEvent(new Event('input', { bubbles: true }));
+      teamnameInput.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(container.textContent).toContain('Failed to create / join the team');
+  });
 });
