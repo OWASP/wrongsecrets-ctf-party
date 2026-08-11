@@ -1,5 +1,6 @@
 describe('Admin Login', () => {
   it('should allow the admin to log in through the main page', () => {
+    // In CI this comes from CYPRESS_ADMIN_PASSWORD; set ADMIN_PASSWORD locally via Cypress envs.
     const adminPassword = Cypress.env('ADMIN_PASSWORD');
 
     cy.wrap(adminPassword, { log: false })
