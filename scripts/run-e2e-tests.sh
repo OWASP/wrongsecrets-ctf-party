@@ -2,6 +2,14 @@
 # This script will exit immediately if any command fails
 set -e
 
+cleanup() {
+  if [ -n "${PORT_FORWARD_PID:-}" ]; then
+    kill "$PORT_FORWARD_PID" 2>/dev/null || true
+  fi
+}
+
+trap cleanup EXIT
+
 echo "--- Starting Minikube ---"
 minikube start --cpus=2 --memory=8000MB --driver=docker --network-plugin=cni --cni=calico --kubernetes-version=1.32.0
 
@@ -18,7 +26,6 @@ echo "--- Starting Port Forward in Background ---"
 kubectl port-forward service/wrongsecrets-balancer 3000:3000 &
 # Store the ID of the background process
 PORT_FORWARD_PID=$!
-trap 'kill "$PORT_FORWARD_PID" 2>/dev/null || true' EXIT
 
 echo "--- Waiting for Port Forward to establish... ---"
 sleep 5
@@ -33,5 +40,3 @@ echo "--- Running Cypress Tests ---"
 cd wrongsecrets-balancer
 # Run Cypress tests headlessly
 npx cypress run
-
-echo "--- Cleaning up port-forward process ---"

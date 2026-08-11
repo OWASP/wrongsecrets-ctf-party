@@ -2,6 +2,8 @@ name: 'WrongSecrets CTF Party: E2E Tests'
 on:
   pull_request:
     branches: [ main ]
+permissions:
+  contents: read
 jobs:
   e2e-test:
     name: Run Cypress E2E Tests
@@ -26,10 +28,10 @@ jobs:
         run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
       - name: Build and deploy (non-interactive)
         run: ./build-and-deploy.sh
-      - name: Export admin password for Cypress
-        run: echo "CYPRESS_ADMIN_PASSWORD=$(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}' | base64 --decode)" >> "$GITHUB_ENV"
       - name: Wait for deployment to be ready
         run: kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
+      - name: Export admin password for Cypress
+        run: echo "CYPRESS_ADMIN_PASSWORD=$(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}' | base64 --decode)" >> "$GITHUB_ENV"
       - name: Run Cypress E2E Tests
         uses: cypress-io/github-action@v6
         with:
