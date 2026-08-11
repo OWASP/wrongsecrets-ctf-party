@@ -40,6 +40,7 @@
     "@eslint/eslintrc": "^3.1.0",
     "@eslint/js": "^10.0.0",
     "cookie-signature": "^1.2.2",
+    "cypress": "^15.17.0",
     "eslint": "^10.0.0",
     "eslint-plugin-prettier": "^5.2.1",
     "globals": "^17.0.0",
