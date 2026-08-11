@@ -18,6 +18,7 @@ echo "--- Starting Port Forward in Background ---"
 kubectl port-forward service/wrongsecrets-balancer 3000:3000 &
 # Store the ID of the background process
 PORT_FORWARD_PID=$!
+trap 'kill "$PORT_FORWARD_PID" 2>/dev/null || true' EXIT
 
 echo "--- Waiting for Port Forward to establish... ---"
 sleep 5
@@ -34,5 +35,3 @@ cd wrongsecrets-balancer
 npx cypress run
 
 echo "--- Cleaning up port-forward process ---"
-# Stop the background port-forward process
-kill $PORT_FORWARD_PID
