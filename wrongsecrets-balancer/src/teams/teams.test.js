@@ -253,27 +253,29 @@ test('reset passcode is forbidden for admin', async () => {
 });
 
 test('reset passcode fails with not found if team does not exist', async () => {
-  const team = 't-test-team';
+  const teamCookieValue = 't-test-team';
+  const expectedCleanedTeam = 'test-team';
 
   changePasscodeHashForTeam.mockImplementation(() => {
-    throw new Error(`deployments.apps "${team}-wrongsecrets" not found`);
+    throw new Error(`deployments.apps "t-${expectedCleanedTeam}-wrongsecrets" not found`);
   });
 
   await request(app)
     .post(`/balancer/teams/reset-passcode`)
-    .set('Cookie', [`${get('cookieParser.cookieName')}=${team}`])
+    .set('Cookie', [`${get('cookieParser.cookieName')}=${teamCookieValue}`])
     .send()
     .expect(404);
 });
 
 test('reset passcode resets passcode to new value if team exists', async () => {
-  const team = 't-test-team';
+  const teamCookieValue = 't-test-team';
+  const expectedCleanedTeam = 'test-team';
 
   let newPasscode = null;
 
   await request(app)
     .post(`/balancer/teams/reset-passcode`)
-    .set('Cookie', [`${get('cookieParser.cookieName')}=${team}`])
+    .set('Cookie', [`${get('cookieParser.cookieName')}=${teamCookieValue}`])
     .send()
     .expect(200)
     .then(({ body }) => {
@@ -285,6 +287,6 @@ test('reset passcode resets passcode to new value if team exists', async () => {
   expect(changePasscodeHashForTeam).toHaveBeenCalled();
 
   const callArgs = changePasscodeHashForTeam.mock.calls[0];
-  expect(callArgs[0]).toBe(team);
+  expect(callArgs[0]).toBe(expectedCleanedTeam);
   expect(bcrypt.compareSync(newPasscode, callArgs[1])).toBe(true);
 });

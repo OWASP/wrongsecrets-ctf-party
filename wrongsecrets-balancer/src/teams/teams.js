@@ -921,7 +921,7 @@ async function resetPasscode(req, res) {
   const { passcode, hash } = await generatePasscode();
 
   try {
-    await changePasscodeHashForTeam(req.teamname, hash);
+    await changePasscodeHashForTeam(team, hash);
 
     return res.status(200).json({
       message: 'Reset Passcode',
