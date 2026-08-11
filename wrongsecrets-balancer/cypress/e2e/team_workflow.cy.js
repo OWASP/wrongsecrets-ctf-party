@@ -36,7 +36,7 @@ describe('Team Creation and Joining Workflow', () => {
   });
 
   it('should block invalid team names before creating a team', () => {
-    cy.intercept('POST', '**/balancer/teams/**/join').as('joinRequest');
+    cy.intercept('POST', '**/balancer/teams/*/join').as('joinRequest');
 
     cy.visit('http://localhost:3000');
     cy.get('[data-test-id="teamname-input"]').type('TEAM');
