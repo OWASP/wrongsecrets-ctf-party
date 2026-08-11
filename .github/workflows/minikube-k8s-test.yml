@@ -17,6 +17,7 @@ jobs:
   test-minikube-build:
     name: Test with minikube (build)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - uses: actions/checkout@v6
@@ -24,7 +25,7 @@ jobs:
         with:
           node-version: 24
       - name: Start minikube
-        uses: medyagh/setup-minikube@master
+        uses: medyagh/setup-minikube@e54c6bfce85fe75714fc113f1fa200c23338732b # master@2026-07-22
         with:
           minikube-version: 1.35.0
           driver: docker
@@ -33,7 +34,7 @@ jobs:
         run: |
           eval $(minikube docker-env)
           ./build-and-deploy.sh
-          while [[ $(kubectl get pods -l app=wrongsecrets-balancer -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != *"True"* ]]; do echo "waiting for wrongsecrets-balancer" && sleep 2; done
+          kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=300s
           kubectl logs deployments/wrongsecrets-balancer -f >> pod.log &
           echo "port forwarding"
           kubectl port-forward service/wrongsecrets-balancer 3000:3000 &
@@ -42,9 +43,15 @@ jobs:
           curl http://localhost:3000/balancer/
           echo "logs from pod to make sure:"
           cat pod.log
+      - name: Show pod diagnostics on failure
+        if: failure()
+        run: |
+          kubectl describe pods -l app=wrongsecrets-balancer
+          kubectl get events --sort-by='.lastTimestamp'
   test-minikube-containers:
     name: Test with minikube (containers)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       - uses: actions/checkout@v6
@@ -52,7 +59,7 @@ jobs:
         with:
           node-version: 24
       - name: Start minikube
-        uses: medyagh/setup-minikube@master
+        uses: medyagh/setup-minikube@e54c6bfce85fe75714fc113f1fa200c23338732b # master@2026-07-22
         with:
           minikube-version: 1.35.0
           driver: docker
@@ -60,8 +67,24 @@ jobs:
       - name: test script
         run: |
           eval $(minikube docker-env)
-          ./build-and-deploy-container.sh
-          while [[ $(kubectl get pods -l app=wrongsecrets-balancer -o 'jsonpath={..status.conditions[?(@.type=="Ready")].status}') != *"True"* ]]; do echo "waiting for wrongsecrets-balancer" && sleep 2; done
+          version="$(uuidgen)"
+          mapfile -t _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml)
+          WRONGSECRETS_IMAGE="${_vals[0]}"
+          WRONGSECRETS_TAG="${_vals[1]}"
+          WEBTOP_IMAGE="${_vals[2]}"
+          WEBTOP_TAG="${_vals[3]}"
+          docker pull "${WRONGSECRETS_IMAGE}:${WRONGSECRETS_TAG}" &
+          docker pull "${WEBTOP_IMAGE}:${WEBTOP_TAG}" &
+          docker build -t "local/wrongsecrets-balancer:${version}" ./wrongsecrets-balancer &
+          docker build -t "local/cleaner:${version}" ./cleaner &
+          wait
+          helm upgrade --install wrongsecrets ./helm/wrongsecrets-ctf-party \
+            --set="imagePullPolicy=IfNotPresent" \
+            --set="balancer.repository=local/wrongsecrets-balancer" \
+            --set="balancer.tag=${version}" \
+            --set="wrongsecretsCleanup.repository=local/cleaner" \
+            --set="wrongsecretsCleanup.tag=${version}"
+          kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=300s
           kubectl logs deployments/wrongsecrets-balancer -f >> pod.log &
           echo "port forwarding"
           kubectl port-forward service/wrongsecrets-balancer 3000:3000 &
@@ -70,3 +93,8 @@ jobs:
           curl http://localhost:3000/balancer/
           echo "logs from pod to make sure:"
           cat pod.log
+      - name: Show pod diagnostics on failure
+        if: failure()
+        run: |
+          kubectl describe pods -l app=wrongsecrets-balancer
+          kubectl get events --sort-by='.lastTimestamp'
