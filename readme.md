@@ -178,9 +178,9 @@ Then open a browser and go to [localhost:3000](http:localhost:3000) and have fun
 
 See [production notes](./guides/production-notes/production-notes.md) for a checklist of values you'll likely need to configure before using Wrongsecrets-ctf-party in proper events.
 
-### Generating CTFd Challenge Archives (juice-shop-ctf-cli v12 on Node.js 24)
+### Generating CTFd Challenge Archives (juice-shop-ctf-cli v12 on Node.js 26)
 
-Use `juice-shop-ctf-cli@12` with `Node.js 24`.
+Use `juice-shop-ctf-cli@12` with `Node.js 26`.
 
 If you use `juice-shop-ctf-cli@12` locally, do not point it at `http://localhost:3000` unless your request includes a valid balancer team cookie.
 

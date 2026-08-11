@@ -3,7 +3,7 @@
   "version": "0.1.1",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=26.0.0"
   },
   "dependencies": {
     "axios": "^1.15.0",
@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "ajv": "^8.20.0",
     "react-scripts": "^5.0.1",
     "source-map-explorer": "^2.5.3",
     "typescript": "^5.9.2"
