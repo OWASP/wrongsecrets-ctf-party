@@ -40,6 +40,9 @@ describe('Team Creation and Joining Workflow', () => {
 
     cy.visit('http://localhost:3000');
     cy.get('[data-test-id="teamname-input"]').type('TEAM');
+    cy.get('[data-test-id="teamname-input"]').then(($input) => {
+      expect($input.is(':invalid')).to.eq(true);
+    });
     cy.get('[data-test-id="create-join-team-button"]').click();
 
     cy.get('@joinRequest.all').should('have.length', 0);
