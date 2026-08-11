@@ -55,9 +55,9 @@ const failedLoginCounter = new promClient.Counter({
 
 const { logger } = require('../logger');
 const { get, getCreateTeamHmacKey } = require('../config');
+const { TEAMNAME_PATTERN } = require('../validation');
 
 const BCRYPT_ROUNDS = process.env['NODE_ENV'] === 'production' ? 12 : 2;
-const TEAMNAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

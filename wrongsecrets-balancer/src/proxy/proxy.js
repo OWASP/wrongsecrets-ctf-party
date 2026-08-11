@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 
 const { get, extractTeamName } = require('../config');
 const { logger } = require('../logger');
+const { isValidTeamname } = require('../validation');
 const {
   getJuiceShopInstanceForTeamname,
   updateLastRequestTimestampForTeam,
@@ -59,15 +60,6 @@ function redirectAdminTrafficToBalancerPage(req, res, next) {
 }
 
 const connectionCache = new Map();
-const TEAMNAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
-
-function isValidTeamname(teamname) {
-  if (typeof teamname !== 'string' || teamname.length === 0) {
-    return false;
-  }
-  return TEAMNAME_PATTERN.test(teamname);
-}
-
 function shouldProxyUpgradeToVirtualDesktop(requestUrl) {
   const { pathname } = new URL(requestUrl, 'http://localhost');
   return (
