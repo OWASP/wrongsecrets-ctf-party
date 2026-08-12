@@ -38,7 +38,9 @@ describe('Team Creation and Joining Workflow', () => {
           cy.get('[data-test-id="create-join-team-button"]').click();
 
           // On the "Joining team" page, type the real passcode we captured.
-          cy.get('[data-test-id="passcode-input"]', { timeout: 15000 }).should('be.visible').type(passcode);
+          cy.get('[data-test-id="passcode-input"]', { timeout: 15000 })
+            .should('be.visible')
+            .type(passcode);
           cy.get('[data-test-id="join-team-button"]').click();
 
           // === PART 3: FINAL VERIFICATION (with a long timeout) ===
@@ -46,6 +48,22 @@ describe('Team Creation and Joining Workflow', () => {
           // We give it up to 2 minutes (120000ms) for the backend instance to get ready.
           cy.get('[data-test-id="start-hacking-button"]', { timeout: 120000 }).should('be.visible');
           cy.get('[data-test-id="start-desktop-button"]').should('be.visible');
+
+          // === PART 4: RESET PASSCODE (REGRESSION TEST) ===
+          cy.intercept('POST', '/balancer/teams/reset-passcode').as('resetPasscodeRequest');
+          cy.contains('button', 'Reset Passcode').click();
+          cy.wait('@resetPasscodeRequest').then((interception) => {
+            expect(interception.response.statusCode).to.eq(200);
+            expect(interception.response.body.passcode).to.match(/^[A-Z0-9]{8}$/);
+            cy.contains('h2', 'Passcode Reset').should('be.visible');
+            cy.get('[data-test-id="passcode-display"]')
+              .invoke('text')
+              .then((displayedPasscode) => {
+                const newPasscode = displayedPasscode.replace(/\s+/g, '');
+                expect(newPasscode).to.match(/^[A-Z0-9]{8}$/);
+                expect(newPasscode).to.not.eq(passcode);
+              });
+          });
         });
     });
   });
