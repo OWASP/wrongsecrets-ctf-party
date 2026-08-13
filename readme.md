@@ -9,7 +9,6 @@ _Powered by MultiJuicer_
 [![WrongSecrets CTF Party: E2E Tests](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/e2e-tests.yml)
 [![Test minikube script (k8s)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/minikube-k8s-test.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/minikube-k8s-test.yml)
 [![Preview Deployment](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/preview.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/preview.yml)
-[![Publish Docker Images](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/publish.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/publish.yml)
 [![Deploy static content to Pages](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/pages.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/pages.yml)
 [![Release Management](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/release-notes.yaml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/release-notes.yaml)
 
