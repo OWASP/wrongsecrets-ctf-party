@@ -48,3 +48,17 @@ jobs:
           wait-on: 'http://localhost:3000'
           wait-on-timeout: 300
           browser: chrome
+
+      - name: Dump Kubernetes Diagnostics on Failure
+        if: failure()
+        run: |
+          echo "=== KUBERNETES NAMESPACES ==="
+          kubectl get namespaces || true
+          echo "=== KUBERNETES PODS (ALL NAMESPACES) ==="
+          kubectl get pods -A -o wide || true
+          echo "=== KUBERNETES DEPLOYMENTS (ALL NAMESPACES) ==="
+          kubectl get deployments -A -o wide || true
+          echo "=== KUBERNETES EVENTS (ALL NAMESPACES) ==="
+          kubectl get events -A --sort-by='.metadata.creationTimestamp' | tail -n 50 || true
+          echo "=== BALANCER POD LOGS ==="
+          kubectl logs -l app=wrongsecrets-balancer -A --tail=300 || true
