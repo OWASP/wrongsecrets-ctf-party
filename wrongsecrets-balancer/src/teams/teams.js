@@ -951,7 +951,8 @@ async function awaitReadiness(req, res) {
   logger.info(`Awaiting readiness of wrongsecrets Deployment for team '${team}'`);
   for (let i = 0; i < 180; i++) {
     try {
-      const { readyReplicas } = await getJuiceShopInstanceForTeamname(team);
+      const instance = await getJuiceShopInstanceForTeamname(team);
+      const readyReplicas = instance ? instance.readyReplicas : 0;
 
       if (readyReplicas === 1) {
         logger.info(`wrongsecrets Deployment for team '${team}' ready`);
