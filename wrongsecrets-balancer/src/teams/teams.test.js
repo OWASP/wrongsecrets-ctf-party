@@ -290,3 +290,19 @@ test('reset passcode resets passcode to new value if team exists', async () => {
   expect(callArgs[0]).toBe(expectedCleanedTeam);
   expect(bcrypt.compareSync(newPasscode, callArgs[1])).toBe(true);
 });
+
+describe('wait-till-ready polling', () => {
+  test('returns 200 immediately if deployment is already ready', async () => {
+    getJuiceShopInstanceForTeamname.mockResolvedValue({ readyReplicas: 1 });
+
+    await request(app).get('/balancer/teams/team42/wait-till-ready').expect(200);
+  });
+
+  test('handles transient undefined (missing deployment) and resolves on next check', async () => {
+    getJuiceShopInstanceForTeamname
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ readyReplicas: 1 });
+
+    await request(app).get('/balancer/teams/team42/wait-till-ready').expect(200);
+  });
+});
