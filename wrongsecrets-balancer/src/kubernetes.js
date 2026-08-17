@@ -2282,7 +2282,6 @@ const updateLastRequestTimestampForTeam = (teamname) => {
 };
 
 const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
-  const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
   const deploymentPatch = {
     metadata: {
       annotations: {
@@ -2291,12 +2290,36 @@ const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
     },
   };
 
-  return k8sAppsApi.patchNamespacedDeployment({
-    name: `t-${teamname}-wrongsecrets`,
-    namespace: `t-${teamname}`,
-    body: deploymentPatch,
-    options: options,
-  });
+  const options = {
+    middleware: [
+      {
+        pre(context) {
+          context.setHeaderParam('Content-Type', 'application/merge-patch+json');
+          return {
+            toPromise() {
+              return Promise.resolve(context);
+            },
+          };
+        },
+        post(response) {
+          return {
+            toPromise() {
+              return Promise.resolve(response);
+            },
+          };
+        },
+      },
+    ],
+  };
+
+  return k8sAppsApi.patchNamespacedDeployment(
+    {
+      name: `t-${teamname}-wrongsecrets`,
+      namespace: `t-${teamname}`,
+      body: deploymentPatch,
+    },
+    options
+  );
 };
 
 const deleteNamespaceForTeam = async (team) => {
