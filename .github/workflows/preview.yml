@@ -282,7 +282,7 @@ jobs:
         # is read-only ("Resource not accessible by integration"). Fork PRs are
         # commented on by the post-preview-comment job (pull_request_target).
         if: github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           INSTRUCTIONS_CONTENT: ${{ steps.instructions.outputs.content }}
         with:
@@ -399,7 +399,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Comment on PR
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           INSTRUCTIONS_CONTENT: ${{ steps.instructions.outputs.content }}
         with:
