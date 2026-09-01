@@ -1,0 +1,64 @@
+name: 'WrongSecrets CTF Party: E2E Tests'
+on:
+  pull_request:
+    branches: [ main ]
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  e2e-test:
+    name: Run Cypress E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: |
+            wrongsecrets-balancer/package-lock.json
+            wrongsecrets-balancer/ui/package-lock.json
+      - name: Start Minikube
+        uses: medyagh/setup-minikube@latest
+        with:
+          driver: docker
+          cpus: '2'
+          memory: '8000'
+          kubernetes-version: 'v1.32.0'
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+      - name: Install yq
+        run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
+      - name: Build and deploy (non-interactive)
+        run: ./build-and-deploy.sh
+      - name: Wait for deployment to be ready
+        run: kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
+      - name: Export admin password for Cypress
+        run: echo "CYPRESS_ADMIN_PASSWORD=$(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}' | base64 --decode)" >> "$GITHUB_ENV"
+      - name: Run Cypress E2E Tests
+        uses: cypress-io/github-action@v7
+        with:
+          working-directory: wrongsecrets-balancer
+          install: true
+          start: kubectl port-forward service/wrongsecrets-balancer 3000:3000
+          wait-on: 'http://localhost:3000'
+          wait-on-timeout: 300
+          browser: chrome
+
+      - name: Dump Kubernetes Diagnostics on Failure
+        if: failure()
+        run: |
+          echo "=== KUBERNETES NAMESPACES ==="
+          kubectl get namespaces || true
+          echo "=== KUBERNETES PODS (ALL NAMESPACES) ==="
+          kubectl get pods -A -o wide || true
+          echo "=== KUBERNETES DEPLOYMENTS (ALL NAMESPACES) ==="
+          kubectl get deployments -A -o wide || true
+          echo "=== KUBERNETES EVENTS (ALL NAMESPACES) ==="
+          kubectl get events -A --sort-by='.metadata.creationTimestamp' | tail -n 50 || true
+          echo "=== BALANCER POD LOGS ==="
+          kubectl logs -l app=wrongsecrets-balancer -A --tail=300 || true

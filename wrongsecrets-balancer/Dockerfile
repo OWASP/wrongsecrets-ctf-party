@@ -1,10 +1,10 @@
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 RUN mkdir -p /home/app
 WORKDIR /home/app
 COPY package.json package-lock.json .npmrc ./
 RUN npm ci --omit=dev
 
-FROM node:24-alpine AS ui
+FROM node:26-alpine AS ui
 RUN mkdir -p /home/app
 WORKDIR /home/app
 COPY ui/package.json ui/package-lock.json ./
@@ -12,7 +12,7 @@ RUN npm ci --legacy-peer-deps
 COPY ui/ ./
 RUN npm run build
 
-FROM node:24-alpine
+FROM node:26-alpine
 ARG NODE_ENV
 RUN addgroup --system --gid 1001 app && adduser app --system --uid 1001 --ingroup app
 WORKDIR /home/app/

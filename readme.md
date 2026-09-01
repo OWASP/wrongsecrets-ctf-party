@@ -6,7 +6,11 @@ _Powered by MultiJuicer_
 [![CodeQL](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/codeql-analysis.yml)
 [![Pre-commit check](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/pre-commit.yml)
 [![Run Tests](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/test.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/test.yml)
+[![WrongSecrets CTF Party: E2E Tests](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/e2e-tests.yml)
 [![Test minikube script (k8s)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/minikube-k8s-test.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/minikube-k8s-test.yml)
+[![Preview Deployment](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/preview.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/preview.yml)
+[![Deploy static content to Pages](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/pages.yml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/pages.yml)
+[![Release Management](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/release-notes.yaml/badge.svg)](https://github.com/OWASP/wrongsecrets-ctf-party/actions/workflows/release-notes.yaml)
 
 Want to play OWASP WrongSecrets in a large group in CTF mode, but not go over all the hassle of setting up local copies of OWASP WrongSecrets? Here is OWASP WrongSecrets CTF Party! This is a fork of OWASP MultiJuicer, which is adapted to become a dynamic multi-tenant setup for doing a CTF together!
 
@@ -20,7 +24,7 @@ Note that we:
 
 ## Special thanks
 
-Special thanks to [@commjoen](https://github.com/commjoen), [@madhuakula](https://github.com/madhuakula), [@bendehaan](https://github.com/bendehaan), and [@mikewoudenberg](https://github.com/mikewoudenberg), and [@osamamagdy](https://github.com/osamamagdy) for making this port a reality!
+Special thanks to [@commjoen](https://github.com/commjoen), [@madhuakula](https://github.com/madhuakula), [@bendehaan](https://github.com/bendehaan), and [@mikewoudenberg](https://github.com/mikewoudenberg), [@osamamagdy](https://github.com/osamamagdy), [@seershan](https://github.com/seershan) and [@youknowme19](https://github.com/youknowme19) for making this port a reality!
 
 ### Sponsorships
 
@@ -173,9 +177,9 @@ Then open a browser and go to [localhost:3000](http:localhost:3000) and have fun
 
 See [production notes](./guides/production-notes/production-notes.md) for a checklist of values you'll likely need to configure before using Wrongsecrets-ctf-party in proper events.
 
-### Generating CTFd Challenge Archives (juice-shop-ctf-cli v12 on Node.js 24)
+### Generating CTFd Challenge Archives (juice-shop-ctf-cli v12 on Node.js 26)
 
-Use `juice-shop-ctf-cli@12` with `Node.js 24`.
+Use `juice-shop-ctf-cli@12` with `Node.js 26`.
 
 If you use `juice-shop-ctf-cli@12` locally, do not point it at `http://localhost:3000` unless your request includes a valid balancer team cookie.
 

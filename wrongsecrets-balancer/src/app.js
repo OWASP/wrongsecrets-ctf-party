@@ -2,7 +2,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 
-const { get, extractTeamName } = require('./config');
+const { get, extractTeamName, getCreateTeamHmacKey } = require('./config');
 const { logger } = require('./logger');
 
 const app = express();
@@ -14,13 +14,7 @@ const proxyRoutes = require('./proxy/proxy');
 
 app.get('/balancer/dynamics', (req, res) => {
   const accessPassword = process.env['REACT_APP_ACCESS_PASSWORD'];
-  logger.info(`password: ${accessPassword}`);
-  var usePassword = false;
-  if (!accessPassword || accessPassword.length === 0) {
-    //nothign for now
-  } else {
-    usePassword = true;
-  }
+  const usePassword = Boolean(accessPassword);
   res.json({
     react_gif_logo: process.env['REACT_APP_MOVING_GIF_LOGO'],
     k8s_env: process.env['K8S_ENV'],
@@ -29,7 +23,7 @@ app.get('/balancer/dynamics', (req, res) => {
     s3_bucket_url: process.env['REACT_APP_S3_BUCKET_URL'],
     azure_blob_url: process.env['REACT_APP_AZ_BLOB_URL'],
     gcp_bucket_url: process.env['REACT_APP_GCP_BUCKET_URL'],
-    hmac_key: process.env['REACT_APP_CREATE_TEAM_HMAC_KEY'] || 'hardcodedkey',
+    hmac_key: getCreateTeamHmacKey(),
     enable_password: usePassword,
   });
 });

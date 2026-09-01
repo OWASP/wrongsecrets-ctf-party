@@ -1,8 +1,12 @@
 jest.mock('../kubernetes');
 jest.mock('http-proxy');
 
+const crypto = require('crypto');
 const request = require('supertest');
 const bcrypt = require('bcryptjs');
+
+process.env.REACT_APP_CREATE_TEAM_HMAC_KEY = 'test-hmac-key';
+
 const app = require('../app');
 const { get } = require('../config');
 const {
@@ -26,6 +30,12 @@ const {
   createNSPsforTeam,
 } = require('../kubernetes');
 
+const validHmacFor = (teamname) =>
+  crypto
+    .createHmac('sha256', process.env.REACT_APP_CREATE_TEAM_HMAC_KEY)
+    .update(teamname, 'utf-8')
+    .digest('hex');
+
 afterEach(() => {
   getJuiceShopInstanceForTeamname.mockReset();
   getJuiceShopInstances.mockReset();
@@ -45,6 +55,17 @@ describe('teamname validation', () => {
       .post(`/balancer/teams/${teamname}/join`, {})
       .expect(shouldPassValidation ? 401 : 400);
   });
+
+  test.each(['01234567890123456789', 'TEAM', 'te++am', '-team', 'team-'])(
+    'invalid teamname "%s" should never reach instance creation',
+    async (teamname) => {
+      await request(app).post(`/balancer/teams/${teamname}/join`).send({}).expect(400);
+
+      expect(getJuiceShopInstanceForTeamname).not.toHaveBeenCalled();
+      expect(createNameSpaceForTeam).not.toHaveBeenCalled();
+      expect(createK8sDeploymentForTeam).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe('passcode validation', () => {
@@ -160,7 +181,7 @@ test('create team creates a instance for team via k8s service', async () => {
 
   await request(app)
     .post('/balancer/teams/team42/join')
-    .send({ hmacvalue: '4c8dd1f1306727c537aa96f0c59968b719740f2a30ccda92044ea59622565564' })
+    .send({ hmacvalue: validHmacFor('team42') })
     .expect(200)
     .then(({ body }) => {
       expect(body.message).toBe('Created Instance');
@@ -188,6 +209,37 @@ test('create team creates a instance for team via k8s service', async () => {
   expect(createServiceForTeam).toHaveBeenCalledWith('team42');
 });
 
+test('create team fails when namespace creation throws an error', async () => {
+  getJuiceShopInstanceForTeamname.mockImplementation(async () => {
+    throw new Error(`deployments.apps "t-team42-wrongsecrets" not found`);
+  });
+  createNameSpaceForTeam.mockImplementation(async () => {
+    throw new Error('Kubernetes API error');
+  });
+
+  await request(app)
+    .post('/balancer/teams/team42/join')
+    .send({ hmacvalue: validHmacFor('team42') })
+    .expect(500);
+
+  expect(createConfigmapForTeam).not.toHaveBeenCalled();
+  expect(createSecretsfileForTeam).not.toHaveBeenCalled();
+});
+
+test('logout clears the team cookie', async () => {
+  await request(app)
+    .post('/balancer/teams/logout')
+    .expect(200)
+    .then((res) => {
+      expect(res.headers['set-cookie']).toEqual(
+        expect.arrayContaining([expect.stringContaining(`${get('cookieParser.cookieName')}=`)])
+      );
+      expect(res.headers['set-cookie']).toEqual(
+        expect.arrayContaining([expect.stringContaining('Expires=Thu, 01 Jan 1970 00:00:00 GMT')])
+      );
+    });
+});
+
 test('reset passcode needs authentication if no cookie is sent', async () => {
   await request(app).post('/balancer/teams/reset-passcode').send().expect(401);
 });
@@ -201,27 +253,29 @@ test('reset passcode is forbidden for admin', async () => {
 });
 
 test('reset passcode fails with not found if team does not exist', async () => {
-  const team = 't-test-team';
+  const teamCookieValue = 't-test-team';
+  const expectedCleanedTeam = 'test-team';
 
   changePasscodeHashForTeam.mockImplementation(() => {
-    throw new Error(`deployments.apps "${team}-wrongsecrets" not found`);
+    throw new Error(`deployments.apps "t-${expectedCleanedTeam}-wrongsecrets" not found`);
   });
 
   await request(app)
     .post(`/balancer/teams/reset-passcode`)
-    .set('Cookie', [`${get('cookieParser.cookieName')}=${team}`])
+    .set('Cookie', [`${get('cookieParser.cookieName')}=${teamCookieValue}`])
     .send()
     .expect(404);
 });
 
 test('reset passcode resets passcode to new value if team exists', async () => {
-  const team = 't-test-team';
+  const teamCookieValue = 't-test-team';
+  const expectedCleanedTeam = 'test-team';
 
   let newPasscode = null;
 
   await request(app)
     .post(`/balancer/teams/reset-passcode`)
-    .set('Cookie', [`${get('cookieParser.cookieName')}=${team}`])
+    .set('Cookie', [`${get('cookieParser.cookieName')}=${teamCookieValue}`])
     .send()
     .expect(200)
     .then(({ body }) => {
@@ -233,6 +287,22 @@ test('reset passcode resets passcode to new value if team exists', async () => {
   expect(changePasscodeHashForTeam).toHaveBeenCalled();
 
   const callArgs = changePasscodeHashForTeam.mock.calls[0];
-  expect(callArgs[0]).toBe(team);
+  expect(callArgs[0]).toBe(expectedCleanedTeam);
   expect(bcrypt.compareSync(newPasscode, callArgs[1])).toBe(true);
+});
+
+describe('wait-till-ready polling', () => {
+  test('returns 200 immediately if deployment is already ready', async () => {
+    getJuiceShopInstanceForTeamname.mockResolvedValue({ readyReplicas: 1 });
+
+    await request(app).get('/balancer/teams/team42/wait-till-ready').expect(200);
+  });
+
+  test('handles transient undefined (missing deployment) and resolves on next check', async () => {
+    getJuiceShopInstanceForTeamname
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({ readyReplicas: 1 });
+
+    await request(app).get('/balancer/teams/team42/wait-till-ready').expect(200);
+  });
 });

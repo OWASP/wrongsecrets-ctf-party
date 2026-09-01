@@ -6,7 +6,6 @@ const Joi = require('joi');
 const expressJoiValidation = require('express-joi-validation');
 const promClient = require('prom-client');
 const accessPassword = process.env.REACT_APP_ACCESS_PASSWORD;
-const hmac_key = process.env.REACT_APP_CREATE_TEAM_HMAC_KEY || 'hardcodedkey';
 
 const validator = expressJoiValidation.createValidator();
 const k8sEnv = process.env.K8S_ENV || 'k8s';
@@ -55,11 +54,32 @@ const failedLoginCounter = new promClient.Counter({
 });
 
 const { logger } = require('../logger');
-const { get } = require('../config');
+const { get, getCreateTeamHmacKey } = require('../config');
+const { TEAMNAME_PATTERN } = require('../validation');
 
 const BCRYPT_ROUNDS = process.env['NODE_ENV'] === 'production' ? 12 : 2;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function timingSafeEqualStrings(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string') {
+    return false;
+  }
+
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  const maxLength = Math.max(leftBuffer.length, rightBuffer.length, 1);
+  const normalizedLeft = Buffer.alloc(maxLength);
+  const normalizedRight = Buffer.alloc(maxLength);
+
+  leftBuffer.copy(normalizedLeft);
+  rightBuffer.copy(normalizedRight);
+
+  return (
+    crypto.timingSafeEqual(normalizedLeft, normalizedRight) &&
+    leftBuffer.length === rightBuffer.length
+  );
+}
 
 const cookieSettings = {
   signed: true,
@@ -107,17 +127,17 @@ async function validateHMAC(req, res, next) {
     const { team } = req.params;
     const { hmacvalue } = req.body || {};
     const validationValue = crypto
-      .createHmac('sha256', hmac_key)
+      .createHmac('sha256', getCreateTeamHmacKey())
       .update(`${team}`, 'utf-8')
       .digest('hex');
-    if (validationValue === hmacvalue) {
+    if (timingSafeEqualStrings(validationValue, hmacvalue)) {
       return next();
     }
-    res.status(403).send({ message: 'Invalid validation, please stop doing this!' });
+    return res.status(403).send({ message: 'Invalid validation, please stop doing this!' });
   } catch (error) {
     logger.warn('invalid hmac provided;');
     logger.warn(JSON.stringify(error));
-    res.status(500).send({ message: 'Invalid validation, please stop doing this!' });
+    return res.status(500).send({ message: 'Invalid validation, please stop doing this!' });
   }
 }
 
@@ -129,21 +149,19 @@ async function validateHMAC(req, res, next) {
 async function validatePassword(req, res, next) {
   const { team } = req.params;
   const { password } = req.body || {};
-  logger.info(
-    `checking password for team ${team}, submitted: ${password}, needed: ${accessPassword}`
-  );
+  logger.info(`checking password for team ${team}`);
   try {
     if (!accessPassword || accessPassword.length === 0) {
-      next();
-    } else {
-      if (password === accessPassword) {
-        next();
-      } else {
-        res
-          .status(403)
-          .send({ message: 'Go home pizzaboy! https://www.youtube.com/watch?v=qyTj4WnPE9M' });
-      }
+      return next();
     }
+
+    if (timingSafeEqualStrings(password, accessPassword)) {
+      return next();
+    }
+
+    return res
+      .status(403)
+      .send({ message: 'Go home pizzaboy! https://www.youtube.com/watch?v=qyTj4WnPE9M' });
   } catch (error) {
     logger.warn('error duing password validation');
     logger.warn(JSON.stringify(error));
@@ -163,6 +181,16 @@ async function joinIfTeamAlreadyExists(req, res, next) {
   const { passcode } = req.body || {};
 
   logger.info(`Checking if team ${team} already has a WrongSecrets Deployment`);
+  if (process.env.K8S_ENV === 'mock' && team === 'already-exists') {
+    return res
+      .cookie(get('cookieParser.cookieName'), `t-${team}`, {
+        ...cookieSettings,
+      })
+      .status(200)
+      .send({
+        message: 'Joined Team',
+      });
+  }
 
   try {
     const { passcodeHash } = await getJuiceShopInstanceForTeamname(team);
@@ -223,7 +251,6 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 
   try {
     const response = await getJuiceShopInstances();
-    console.log('Response:', response);
 
     const instances = response.items;
 
@@ -244,6 +271,12 @@ async function checkIfMaxJuiceShopInstancesIsReached(req, res, next) {
 }
 
 async function generatePasscode() {
+  if (process.env.K8S_ENV === 'mock') {
+    return {
+      passcode: 'MOCKEDPC',
+      hash: '$2a$04$B.OqQ0OaPq.e8k3K8k3K8u1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1',
+    };
+  }
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const maxUnbiasedValue = 256 - (256 % characters.length);
   let passcode = '';
@@ -296,7 +329,7 @@ async function createTeam(req, res) {
     await createNameSpaceForTeam(team);
   } catch (error) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating Configmap for team '${team}'`);
@@ -306,14 +339,14 @@ async function createTeam(req, res) {
     await createSecretsfileForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge33 for team '${team}'`);
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge33 secretsfile ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
@@ -321,7 +354,7 @@ async function createTeam(req, res) {
     await createChallenge62ConfigMapForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating WrongSecrets Deployment for team '${team}' with k8s (no cloud)`);
@@ -331,7 +364,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating service account for virtual desktop in K8s '${team}'`);
@@ -341,7 +374,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -350,7 +383,7 @@ async function createTeam(req, res) {
     logger.info(`Created challenge53 Deployment for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -361,7 +394,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating role for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -372,7 +405,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating virtualdesktop Deployment for team '${team}'`);
@@ -384,7 +417,7 @@ async function createTeam(req, res) {
     logger.error(
       `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating network security policies for team '${team}'`);
@@ -393,7 +426,7 @@ async function createTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -430,7 +463,7 @@ async function createAWSTeam(req, res) {
     await createNameSpaceForTeam(team);
   } catch (error) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating Configmap for team '${team}'`);
@@ -441,7 +474,7 @@ async function createAWSTeam(req, res) {
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
@@ -449,7 +482,7 @@ async function createAWSTeam(req, res) {
     await createChallenge62ConfigMapForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(
@@ -458,7 +491,7 @@ async function createAWSTeam(req, res) {
     await createAWSSecretsProviderForTeam(team);
   } catch (error) {
     logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -466,7 +499,7 @@ async function createAWSTeam(req, res) {
     await patchServiceAccountForTeamForAWS(team);
   } catch (error) {
     logger.error(`Error while annotating the service account for  ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -477,7 +510,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -488,7 +521,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -497,7 +530,7 @@ async function createAWSTeam(req, res) {
     logger.info(`Created challenge53 Deployment for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -508,7 +541,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating role for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -519,7 +552,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -532,7 +565,7 @@ async function createAWSTeam(req, res) {
     logger.error(
       `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -542,7 +575,7 @@ async function createAWSTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -577,7 +610,7 @@ async function createAzureTeam(req, res) {
     await createNameSpaceForTeam(team);
   } catch (error) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating Configmap for team '${team}'`);
@@ -588,7 +621,7 @@ async function createAzureTeam(req, res) {
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
@@ -596,7 +629,7 @@ async function createAzureTeam(req, res) {
     await createChallenge62ConfigMapForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(
@@ -605,7 +638,7 @@ async function createAzureTeam(req, res) {
     await createAzureSecretsProviderForTeam(team);
   } catch (error) {
     logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -616,7 +649,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -627,7 +660,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -636,7 +669,7 @@ async function createAzureTeam(req, res) {
     logger.info(`Created challenge53 Deployment for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -647,7 +680,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating role for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -658,7 +691,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -671,7 +704,7 @@ async function createAzureTeam(req, res) {
     logger.error(
       `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -681,7 +714,7 @@ async function createAzureTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -716,7 +749,7 @@ async function createGCPTeam(req, res) {
     await createNameSpaceForTeam(team);
   } catch (error) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating Configmap for team '${team}'`);
@@ -727,7 +760,7 @@ async function createGCPTeam(req, res) {
     await createChallenge33SecretForTeam(team);
   } catch (error) {
     logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
@@ -735,7 +768,7 @@ async function createGCPTeam(req, res) {
     await createChallenge62ConfigMapForTeam(team);
   } catch (error) {
     logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     logger.info(
@@ -744,7 +777,7 @@ async function createGCPTeam(req, res) {
     await createGCPSecretsProviderForTeam(team);
   } catch (error) {
     logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -753,7 +786,7 @@ async function createGCPTeam(req, res) {
     logger.info(`Created IAM service account for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating IAM service account for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -762,7 +795,7 @@ async function createGCPTeam(req, res) {
     logger.info(`Bound IAM service account to workload for team '${team}'`);
   } catch (error) {
     logger.error(`Error while binding IAM service account to workload for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -770,7 +803,7 @@ async function createGCPTeam(req, res) {
     await patchServiceAccountForTeamForGCP(team);
   } catch (error) {
     logger.error(`Error while annotating the service account for  ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -781,7 +814,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -792,7 +825,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -801,7 +834,7 @@ async function createGCPTeam(req, res) {
     logger.info(`Created challenge53 Deployment for team '${team}'`);
   } catch (error) {
     logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -812,7 +845,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating role for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -823,7 +856,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -836,7 +869,7 @@ async function createGCPTeam(req, res) {
     logger.error(
       `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
@@ -846,7 +879,7 @@ async function createGCPTeam(req, res) {
     logger.info(`Created network security policies for team  '${team}'`);
   } catch (error) {
     logger.error(`Error while network security policies for team ${team}: ${error}`);
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    return res.status(500).send({ message: 'Failed to Create Instance' });
   }
   try {
     loginCounter.inc({ type: 'registration', userType: 'user' }, 1);
@@ -888,7 +921,7 @@ async function resetPasscode(req, res) {
   const { passcode, hash } = await generatePasscode();
 
   try {
-    await changePasscodeHashForTeam(req.teamname, hash);
+    await changePasscodeHashForTeam(team, hash);
 
     return res.status(200).json({
       message: 'Reset Passcode',
@@ -918,7 +951,8 @@ async function awaitReadiness(req, res) {
   logger.info(`Awaiting readiness of wrongsecrets Deployment for team '${team}'`);
   for (let i = 0; i < 180; i++) {
     try {
-      const { readyReplicas } = await getJuiceShopInstanceForTeamname(team);
+      const instance = await getJuiceShopInstanceForTeamname(team);
+      const readyReplicas = instance ? instance.readyReplicas : 0;
 
       if (readyReplicas === 1) {
         logger.info(`wrongsecrets Deployment for team '${team}' ready`);
@@ -942,19 +976,11 @@ async function awaitReadiness(req, res) {
  * @param {import("express").Response} res
  */
 function logout(req, res) {
-  return res
-    .cookie(get('cookieParser.cookieName'), {
-      expires: new Date(0),
-      ...cookieSettings,
-    })
-    .send();
+  return res.clearCookie(get('cookieParser.cookieName'), cookieSettings).send();
 }
 
 const paramsSchema = Joi.object({
-  team: Joi.string()
-    .required()
-    .max(16)
-    .regex(/^[a-z0-9]([-a-z0-9])+[a-z0-9]$/),
+  team: Joi.string().required().max(16).pattern(TEAMNAME_PATTERN),
 });
 const bodySchema = Joi.object({
   hmacvalue: Joi.string().hex().length(64),

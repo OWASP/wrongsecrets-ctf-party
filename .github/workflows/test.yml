@@ -2,15 +2,21 @@ on: [push, pull_request]
 permissions:
   contents: read
 name: "Run Tests"
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   cleaner:
     name: Cleaner
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
+          cache: npm
+          cache-dependency-path: |
+            cleaner/package-lock.json
       - name: Install Balancer
         run: |
           cd cleaner
@@ -27,10 +33,14 @@ jobs:
     name: Balancer
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
+          cache: npm
+          cache-dependency-path: |
+            wrongsecrets-balancer/package-lock.json
+            wrongsecrets-balancer/ui/package-lock.json
       - name: "Install & Build BalancerUI"
         run: |
           cd wrongsecrets-balancer/ui

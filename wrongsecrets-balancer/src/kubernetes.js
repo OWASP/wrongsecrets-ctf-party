@@ -9,7 +9,22 @@ const {
 } = require('@kubernetes/client-node');
 
 const kc = new KubeConfig();
-kc.loadFromCluster();
+const { logger } = require('./logger');
+logger.info(`K8S_ENV: ${process.env.K8S_ENV}`);
+if (process.env.K8S_ENV !== 'mock') {
+  try {
+    kc.loadFromCluster();
+  } catch {
+    logger.warn(
+      'Failed to load Kubernetes config from cluster, falling back to default if not in mock mode'
+    );
+    try {
+      kc.loadFromDefault();
+    } catch {
+      logger.error('Failed to load Kubernetes config');
+    }
+  }
+}
 
 // This will be needed only in case of k8s_env=gcp
 const { auth: authGCPClient } = require('google-auth-library');
@@ -49,11 +64,11 @@ async function secretmanagerGCPAccess(secretName, member) {
   console.log(`Updated IAM policy for ${secretName}`);
 }
 
-const k8sAppsApi = kc.makeApiClient(AppsV1Api);
-const k8sCoreApi = kc.makeApiClient(CoreV1Api);
-const k8sCustomAPI = kc.makeApiClient(CustomObjectsApi);
-const k8sRBACAPI = kc.makeApiClient(RbacAuthorizationV1Api);
-const k8sNetworkingApi = kc.makeApiClient(NetworkingV1Api);
+const k8sAppsApi = process.env.K8S_ENV === 'mock' ? null : kc.makeApiClient(AppsV1Api);
+const k8sCoreApi = process.env.K8S_ENV === 'mock' ? null : kc.makeApiClient(CoreV1Api);
+const k8sCustomAPI = process.env.K8S_ENV === 'mock' ? null : kc.makeApiClient(CustomObjectsApi);
+const k8sRBACAPI = process.env.K8S_ENV === 'mock' ? null : kc.makeApiClient(RbacAuthorizationV1Api);
+const k8sNetworkingApi = process.env.K8S_ENV === 'mock' ? null : kc.makeApiClient(NetworkingV1Api);
 
 // Environment variables
 const awsAccountEnv = process.env.IRSA_ROLE;
@@ -76,7 +91,6 @@ const wrongSecretsDekstopTag = process.env.WRONGSECRETS_DESKTOP_TAG;
 const heroku_wrongsecret_ctf_url = process.env.REACT_APP_HEROKU_WRONGSECRETS_URL;
 
 const { get } = require('./config');
-const { logger } = require('./logger');
 
 // Add input validation helper function
 // Enhanced validateTeamName function with better error handling
@@ -98,6 +112,10 @@ const validateTeamName = (team) => {
 
 // Move safeApiCall to the top
 const safeApiCall = async (apiCall, operation) => {
+  if (process.env.K8S_ENV === 'mock') {
+    logger.info(`Mocking API call for operation: ${operation}`);
+    return { body: {} };
+  }
   try {
     logger.info(`Executing API call for operation: ${operation}`);
     if (typeof apiCall !== 'function') {
@@ -149,6 +167,13 @@ const checkSealedSecretsController = async () => {
 
 // Fix the getJuiceShopInstanceForTeamname function - correct parameter order
 const getJuiceShopInstanceForTeamname = async (teamname) => {
+  if (process.env.K8S_ENV === 'mock') {
+    return {
+      readyReplicas: 1,
+      availableReplicas: 1,
+      passcodeHash: '$2a$04$B.OqQ0OaPq.e8k3K8k3K8u1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1', // bcrypt hash for 'MOCKEDPC'
+    };
+  }
   logger.info(`checking readiness for ${teamname}`);
   try {
     const validatedTeamName = validateTeamName(teamname);
@@ -190,6 +215,7 @@ const getJuiceShopInstanceForTeamname = async (teamname) => {
 
 // Create basic functions
 const createConfigmapForTeam = async (team) => {
+  if (process.env.K8S_ENV === 'mock') return Promise.resolve();
   const configmap = {
     apiVersion: 'v1',
     data: {
@@ -1933,7 +1959,7 @@ const createRoleForWebTop = async (team) => {
     labelSelector: `app=secret-challenge-53,team=${team},deployment-context=${get('deploymentContext')}`,
     limit: 1,
   });
-  const podName = res.items[0].metadata.name;
+  const podName = res.items && res.items[0] ? res.items[0].metadata.name : null;
   const roleDefinitionForWebtop = {
     kind: 'Role',
     apiVersion: 'rbac.authorization.k8s.io/v1',
@@ -1952,18 +1978,22 @@ const createRoleForWebTop = async (team) => {
         resources: ['configmaps'],
         verbs: ['get', 'list'],
       },
-      {
-        apiGroups: [''],
-        resources: ['pods/exec'],
-        verbs: ['create'],
-        resourceNames: [`${podName}`],
-      },
-      {
-        apiGroups: [''],
-        resources: ['pods'],
-        verbs: ['patch', 'update'],
-        resourceNames: [`${podName}`],
-      },
+      ...(podName
+        ? [
+            {
+              apiGroups: [''],
+              resources: ['pods/exec'],
+              verbs: ['create'],
+              resourceNames: [podName],
+            },
+            {
+              apiGroups: [''],
+              resources: ['pods'],
+              verbs: ['patch', 'update'],
+              resourceNames: [podName],
+            },
+          ]
+        : []),
       {
         apiGroups: [''],
         resources: ['pod', 'pods', 'pods/log'],
@@ -2212,6 +2242,9 @@ const createDesktopServiceForTeam = async (teamname) => {
 
 // Management functions
 const getJuiceShopInstances = () => {
+  if (process.env.K8S_ENV === 'mock') {
+    return Promise.resolve({ items: [] });
+  }
   return k8sAppsApi
     .listDeploymentForAllNamespaces({
       allowWatchBookmarks: true,
@@ -2249,7 +2282,6 @@ const updateLastRequestTimestampForTeam = (teamname) => {
 };
 
 const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
-  const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
   const deploymentPatch = {
     metadata: {
       annotations: {
@@ -2258,12 +2290,36 @@ const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
     },
   };
 
-  return k8sAppsApi.patchNamespacedDeployment({
-    name: `t-${teamname}-wrongsecrets`,
-    namespace: `t-${teamname}`,
-    body: deploymentPatch,
-    options: options,
-  });
+  const options = {
+    middleware: [
+      {
+        pre(context) {
+          context.setHeaderParam('Content-Type', 'application/merge-patch+json');
+          return {
+            toPromise() {
+              return Promise.resolve(context);
+            },
+          };
+        },
+        post(response) {
+          return {
+            toPromise() {
+              return Promise.resolve(response);
+            },
+          };
+        },
+      },
+    ],
+  };
+
+  return k8sAppsApi.patchNamespacedDeployment(
+    {
+      name: `t-${teamname}-wrongsecrets`,
+      namespace: `t-${teamname}`,
+      body: deploymentPatch,
+    },
+    options
+  );
 };
 
 const deleteNamespaceForTeam = async (team) => {
@@ -2282,7 +2338,7 @@ const deletePodForTeam = async (team) => {
     labelSelector: `app=wrongsecrets,team=${team},deployment-context=${get('deploymentContext')}`,
   });
 
-  const pods = res.items;
+  const pods = res.items || [];
 
   if (pods.length !== 1) {
     throw new Error(`Unexpected number of pods ${pods.length}`);
@@ -2303,7 +2359,7 @@ const deleteDesktopPodForTeam = async (team) => {
     labelSelector: `app=virtualdesktop,team=${team},deployment-context=${get('deploymentContext')}`,
   });
 
-  const pods = res.items;
+  const pods = res.items || [];
 
   if (pods.length !== 1) {
     throw new Error(`Unexpected number of pods ${pods.length}`);
