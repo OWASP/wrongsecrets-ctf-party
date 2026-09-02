@@ -358,10 +358,8 @@ async function createTeam(req, res) {
       createDesktopDeploymentForTeam({ team, passcodeHash: hash }),
       createRoleForWebTop(team),
     ]);
-  } catch (error) {
-    logger.error(
-      `Error while creating dependent deployments or role for team ${team}: ${error.message}`
-    );
+  } catch {
+    logger.error(`Error while creating dependent deployments or role for team ${team}`);
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
