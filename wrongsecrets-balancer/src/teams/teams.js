@@ -347,9 +347,7 @@ async function createTeam(req, res) {
       createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash }),
     ]);
   } catch (error) {
-    logger.error(
-      `Error while creating independent resources for ${team}: ${error.message || error}`
-    );
+    logger.error(`Error while creating independent resources for ${team}: ${error.message}`);
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
@@ -362,7 +360,7 @@ async function createTeam(req, res) {
     ]);
   } catch (error) {
     logger.error(
-      `Error while creating dependent deployments or role for team ${team}: ${error.message || error}`
+      `Error while creating dependent deployments or role for team ${team}: ${error.message}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
@@ -373,7 +371,7 @@ async function createTeam(req, res) {
     logger.info(`Created roleBinding for virtual desktop for team '${team}'`);
   } catch (error) {
     logger.error(
-      `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message || error}`
+      `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
