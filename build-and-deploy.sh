@@ -8,7 +8,7 @@ echo "For example docker-desktop with its included k8s cluster"
 echo "Usage: ./build-and-deploy.sh"
 
 source ./scripts/check-available-commands.sh
-checkCommandsAvailable helm docker kubectl yq
+checkCommandsAvailable helm docker kubectl yq minikube
 
 version="$(uuidgen)"
 eval $(minikube docker-env)
@@ -26,5 +26,7 @@ docker pull "${WEBTOP_IMAGE}:${WEBTOP_TAG}" &
 docker build -t "local/wrongsecrets-balancer:${version}" ./wrongsecrets-balancer &
 docker build -t "local/cleaner:${version}" ./cleaner &
 wait
+minikube image load "local/wrongsecrets-balancer:${version}"
+minikube image load "local/cleaner:${version}"
 
 helm upgrade --install wrongsecrets ./helm/wrongsecrets-ctf-party --set="imagePullPolicy=Never" --set="balancer.repository=local/wrongsecrets-balancer" --set="balancer.tag=${version}" --set="wrongsecretsCleanup.repository=local/cleaner" --set="wrongsecretsCleanup.tag=${version}"
