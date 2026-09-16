@@ -22,13 +22,12 @@ jobs:
           cache-dependency-path: |
             wrongsecrets-balancer/package-lock.json
             wrongsecrets-balancer/ui/package-lock.json
-      - name: Start Minikube
-        uses: medyagh/setup-minikube@latest
+      - name: Start minikube
+        uses: medyagh/setup-minikube@master
         with:
+          minikube-version: 1.39.0
           driver: docker
-          cpus: '2'
-          memory: '8000'
-          kubernetes-version: 'v1.32.0'
+          kubernetes-version: v1.36.0
       - name: Install Helm
         uses: azure/setup-helm@v5
       - name: Install yq
