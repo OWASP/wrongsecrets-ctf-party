@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MINIKUBE_PROFILE="$(minikube profile list -o json | yq -r '((.valid // []) + (.invalid // []))[] | select(.Active == true) | .Name' | head -n 1)"
+MINIKUBE_PROFILE="$(minikube profile list -o json | yq -r '(.valid // [])[] | select(.Active == true) | .Name' | head -n 1)"
 
 if [ -z "${MINIKUBE_PROFILE}" ]; then
   echo "Could not determine the active minikube profile." >&2
