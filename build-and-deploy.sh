@@ -2,8 +2,7 @@
 set -e
 
 echo "This Script can be used to 'easily' build all WrongSecrets CTF party Components and install them to a local kubernetes cluster"
-echo "For this to work the local kubernetes cluster must have access to the same local registry / image cache which 'docker build ...' writes its image to"
-echo "For example docker-desktop with its included k8s cluster"
+echo "For minikube this script builds local images with docker and then loads them into the current minikube profile"
 
 echo "Usage: ./build-and-deploy.sh"
 
