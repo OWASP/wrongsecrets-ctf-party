@@ -8,7 +8,7 @@ echo "For example docker-desktop with its included k8s cluster"
 echo "Usage: ./build-and-deploy.sh"
 
 source ./scripts/check-available-commands.sh
-checkCommandsAvailable helm docker kubectl yq
+checkCommandsAvailable helm docker kubectl yq minikube
 
 version="$(uuidgen)"
 eval $(minikube docker-env)
