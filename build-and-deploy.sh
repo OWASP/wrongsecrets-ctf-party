@@ -29,4 +29,4 @@ wait
 minikube -p "${MINIKUBE_PROFILE}" image load "local/wrongsecrets-balancer:${version}"
 minikube -p "${MINIKUBE_PROFILE}" image load "local/cleaner:${version}"
 
-helm upgrade --install wrongsecrets ./helm/wrongsecrets-ctf-party --set="imagePullPolicy=Never" --set="balancer.repository=local/wrongsecrets-balancer" --set="balancer.tag=${version}" --set="wrongsecretsCleanup.repository=local/cleaner" --set="wrongsecretsCleanup.tag=${version}"
+helm upgrade --install wrongsecrets ./helm/wrongsecrets-ctf-party --set="balancer.imagePullPolicy=Never" --set="wrongsecretsCleanup.imagePullPolicy=Never" --set="balancer.repository=local/wrongsecrets-balancer" --set="balancer.tag=${version}" --set="wrongsecretsCleanup.repository=local/cleaner" --set="wrongsecretsCleanup.tag=${version}"
