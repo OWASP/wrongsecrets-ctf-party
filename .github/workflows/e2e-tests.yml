@@ -40,13 +40,11 @@ jobs:
         run:  |
           ./build-and-deploy.sh
           kubectl get pods -A -o wide
-      - name: Wait for deployment to be ready
+      - name: Wait for pod to be ready
         run: |
           kubectl get deployments -A
-          if ! kubectl wait \
-            --for=condition=available \
-            deployment/wrongsecrets-balancer \
-            --timeout=300s; then
+
+          if ! kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=300s; then
             echo "Deployment not available within timeout, retrying..."
             echo "=== POD DESCRIPTIONS ==="
             for pod in $(kubectl get pods \
@@ -68,7 +66,7 @@ jobs:
               echo "========================================"
               kubectl logs "$pod" || true
             done
-            kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
+            if ! kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=300s
           fi
           kubectl get pods -A -o wide
       - name: Export admin password for Cypress
