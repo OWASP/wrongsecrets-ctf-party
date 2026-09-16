@@ -37,7 +37,9 @@ jobs:
       - name: Install yq
         run: sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq && sudo chmod +x /usr/bin/yq
       - name: Build and deploy (non-interactive)
-        run: ./build-and-deploy.sh
+        run:  |
+          ./build-and-deploy.sh
+          kubectl get pods -A -o wide
       - name: Wait for deployment to be ready
         run: |
           kubectl get deployments -A
