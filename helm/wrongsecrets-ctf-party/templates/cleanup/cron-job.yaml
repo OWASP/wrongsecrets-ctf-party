@@ -26,7 +26,7 @@ spec:
           {{- end }}
           containers:
             - image: '{{ .Values.wrongsecretsCleanup.repository }}:{{ .Values.wrongsecretsCleanup.tag | default (printf "v%s" .Chart.Version) }}'
-              imagePullPolicy: {{ .Values.imagePullPolicy | quote }}
+              imagePullPolicy: {{ default .Values.imagePullPolicy .Values.wrongsecretsCleanup.imagePullPolicy | quote }}
               {{- if .Values.wrongsecretsCleanup.containerSecurityContext.enabled }}
               securityContext:
                 {{- omit .Values.wrongsecretsCleanup.containerSecurityContext "enabled" | toYaml | nindent 16 }}
