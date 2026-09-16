@@ -69,18 +69,19 @@ jobs:
       - name: test script
         run: |
           version="$(uuidgen)"
+          MINIKUBE_PROFILE="$(minikube profile)"
           IFS=$'\n' read -d '' -r -a _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml && printf '\0')
           WRONGSECRETS_IMAGE="${_vals[0]}"
           WRONGSECRETS_TAG="${_vals[1]}"
           WEBTOP_IMAGE="${_vals[2]}"
           WEBTOP_TAG="${_vals[3]}"
-          minikube image pull "${WRONGSECRETS_IMAGE}:${WRONGSECRETS_TAG}" &
-          minikube image pull "${WEBTOP_IMAGE}:${WEBTOP_TAG}" &
+          minikube -p "${MINIKUBE_PROFILE}" image pull "${WRONGSECRETS_IMAGE}:${WRONGSECRETS_TAG}" &
+          minikube -p "${MINIKUBE_PROFILE}" image pull "${WEBTOP_IMAGE}:${WEBTOP_TAG}" &
           docker build -t "local/wrongsecrets-balancer:${version}" ./wrongsecrets-balancer &
           docker build -t "local/cleaner:${version}" ./cleaner &
           wait
-          minikube image load "local/wrongsecrets-balancer:${version}"
-          minikube image load "local/cleaner:${version}"
+          minikube -p "${MINIKUBE_PROFILE}" image load "local/wrongsecrets-balancer:${version}"
+          minikube -p "${MINIKUBE_PROFILE}" image load "local/cleaner:${version}"
           helm upgrade --install wrongsecrets ./helm/wrongsecrets-ctf-party \
             --set="imagePullPolicy=Never" \
             --set="balancer.repository=local/wrongsecrets-balancer" \
