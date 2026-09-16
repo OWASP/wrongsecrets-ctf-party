@@ -82,7 +82,7 @@ jobs:
           minikube image load "local/wrongsecrets-balancer:${version}"
           minikube image load "local/cleaner:${version}"
           helm upgrade --install wrongsecrets ./helm/wrongsecrets-ctf-party \
-            --set="imagePullPolicy=IfNotPresent" \
+            --set="imagePullPolicy=Never" \
             --set="balancer.repository=local/wrongsecrets-balancer" \
             --set="balancer.tag=${version}" \
             --set="wrongsecretsCleanup.repository=local/cleaner" \
