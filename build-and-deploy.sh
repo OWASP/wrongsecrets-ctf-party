@@ -10,11 +10,7 @@ source ./scripts/check-available-commands.sh
 checkCommandsAvailable helm docker kubectl yq minikube
 
 version="$(uuidgen)"
-MINIKUBE_PROFILE="$(minikube profile list -o json | yq -r '((.valid // []) + (.invalid // []))[] | select(.Active == true) | .Name' | head -n 1)"
-if [ -z "${MINIKUBE_PROFILE}" ]; then
-  echo "Could not determine the active minikube profile."
-  exit 1
-fi
+MINIKUBE_PROFILE="$(bash ./scripts/get-active-minikube-profile.sh)"
 IFS=$'\n' read -d '' -r -a _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml && printf '\0')
 WRONGSECRETS_IMAGE="${_vals[0]}"
 WRONGSECRETS_TAG="${_vals[1]}"
