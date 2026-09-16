@@ -39,7 +39,36 @@ jobs:
       - name: Build and deploy (non-interactive)
         run: ./build-and-deploy.sh
       - name: Wait for deployment to be ready
-        run:  kubectl get deployments -A && kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
+        run: |
+          kubectl get deployments -A
+          if ! kubectl wait \
+            --for=condition=available \
+            deployment/wrongsecrets-balancer \
+            --timeout=300s; then
+            echo "Deployment not available within timeout, retrying..."
+            echo "=== POD DESCRIPTIONS ==="
+            for pod in $(kubectl get pods \
+              -l app=wrongsecrets-balancer \
+              -o name 2>/dev/null); do
+              echo
+              echo "========================================"
+              echo "=== DESCRIBE $pod ==="
+              echo "========================================"
+              kubectl describe "$pod" || true
+            done
+            echo "=== POD LOGS ==="
+            for pod in $(kubectl get pods \
+              -l app=wrongsecrets-balancer \
+              -o name 2>/dev/null); do
+              echo
+              echo "========================================"
+              echo "=== LOGS FOR $pod ==="
+              echo "========================================"
+              kubectl logs "$pod" || true
+            done
+            kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
+          fi
+          kubectl get pods -A -o wide
       - name: Export admin password for Cypress
         run: echo "CYPRESS_ADMIN_PASSWORD=$(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}' | base64 --decode)" >> "$GITHUB_ENV"
       - name: Run Cypress E2E Tests
