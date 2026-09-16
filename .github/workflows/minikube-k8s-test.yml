@@ -35,7 +35,6 @@ jobs:
           kubernetes-version: v1.32.0
       - name: test script
         run: |
-          eval $(minikube docker-env)
           ./build-and-deploy.sh
           kubectl wait --for=condition=ready pod -l app=wrongsecrets-balancer --timeout=300s
           kubectl logs deployments/wrongsecrets-balancer -f >> pod.log &
@@ -69,18 +68,19 @@ jobs:
           kubernetes-version: v1.32.0
       - name: test script
         run: |
-          eval $(minikube docker-env)
           version="$(uuidgen)"
           IFS=$'\n' read -d '' -r -a _vals < <(yq '.wrongsecrets.image, .wrongsecrets.tag, .virtualdesktop.image, .virtualdesktop.tag' helm/wrongsecrets-ctf-party/values.yaml && printf '\0')
           WRONGSECRETS_IMAGE="${_vals[0]}"
           WRONGSECRETS_TAG="${_vals[1]}"
           WEBTOP_IMAGE="${_vals[2]}"
           WEBTOP_TAG="${_vals[3]}"
-          docker pull "${WRONGSECRETS_IMAGE}:${WRONGSECRETS_TAG}" &
-          docker pull "${WEBTOP_IMAGE}:${WEBTOP_TAG}" &
+          minikube image pull "${WRONGSECRETS_IMAGE}:${WRONGSECRETS_TAG}" &
+          minikube image pull "${WEBTOP_IMAGE}:${WEBTOP_TAG}" &
           docker build -t "local/wrongsecrets-balancer:${version}" ./wrongsecrets-balancer &
           docker build -t "local/cleaner:${version}" ./cleaner &
           wait
+          minikube image load "local/wrongsecrets-balancer:${version}"
+          minikube image load "local/cleaner:${version}"
           helm upgrade --install wrongsecrets ./helm/wrongsecrets-ctf-party \
             --set="imagePullPolicy=IfNotPresent" \
             --set="balancer.repository=local/wrongsecrets-balancer" \
