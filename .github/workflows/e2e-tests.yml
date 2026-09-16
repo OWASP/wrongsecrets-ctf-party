@@ -39,7 +39,7 @@ jobs:
       - name: Build and deploy (non-interactive)
         run: ./build-and-deploy.sh
       - name: Wait for deployment to be ready
-        run: kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
+        run:  kubectl get deployments -A && kubectl wait --for=condition=available deployment/wrongsecrets-balancer --timeout=300s
       - name: Export admin password for Cypress
         run: echo "CYPRESS_ADMIN_PASSWORD=$(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}' | base64 --decode)" >> "$GITHUB_ENV"
       - name: Run Cypress E2E Tests
