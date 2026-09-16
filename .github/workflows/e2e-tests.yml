@@ -27,7 +27,11 @@ jobs:
         with:
           minikube-version: 1.39.0
           driver: docker
-          kubernetes-version: v1.36.0
+          cpus: 2
+          memory: 8000MB
+          network-plugin: cni
+          cni: calico
+          kubernetes-version: 1.36.0
       - name: Install Helm
         uses: azure/setup-helm@v5
       - name: Install yq
