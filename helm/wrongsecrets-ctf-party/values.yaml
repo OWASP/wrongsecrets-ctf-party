@@ -30,6 +30,8 @@ service:
   portName: web
 
 balancer:
+  # -- Optional override for the balancer image pull policy. Leave empty to use the global imagePullPolicy value.
+  imagePullPolicy: ""
   cookie:
     # SET THIS TO TRUE IF IN PRODUCTION
     # Sets secure Flag in cookie
@@ -274,6 +276,8 @@ vaultContainer:
 
 # Deletes unused Wrongsecrets namespaces after a configurable period of inactivity
 wrongsecretsCleanup:
+  # -- Optional override for the cleanup job image pull policy. Leave empty to use the global imagePullPolicy value.
+  imagePullPolicy: ""
   repository: jeroenwillemsen/wrongsecrets-ctf-cleaner
   tag: 0.5
   enabled: true

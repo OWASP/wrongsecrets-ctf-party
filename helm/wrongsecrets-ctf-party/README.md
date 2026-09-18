@@ -102,6 +102,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | balancer.env.REACT_APP_HEROKU_WRONGSECRETS_URL | string | `"https://wrongsecrets-ctf.herokuapp.com"` |  |
 | balancer.env.REACT_APP_MOVING_GIF_LOGO | string | `"https://i.gifer.com/9kGQ.gif"` |  |
 | balancer.env.REACT_APP_S3_BUCKET_URL | string | `"s3://funstuff"` |  |
+| balancer.imagePullPolicy | string | `""` | Optional override for the balancer image pull policy. Leave empty to use the global imagePullPolicy value. |
 | balancer.livenessProbe | object | `{"httpGet":{"path":"/balancer/","port":"http"}}` | livenessProbe: Checks if the balancer pod is still alive |
 | balancer.podSecurityContext.enabled | bool | `true` | If true, sets the securityContext on the created pods. This is required for the podSecurityPolicy to work |
 | balancer.podSecurityContext.fsGroup | int | `2000` |  |
@@ -214,6 +215,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | wrongsecretsCleanup.env.MAX_INACTIVE_DURATION | string | `"2d"` |  |
 | wrongsecretsCleanup.env.SHOULD_DELETE | bool | `false` |  |
 | wrongsecretsCleanup.failedJobsHistoryLimit | int | `1` |  |
+| wrongsecretsCleanup.imagePullPolicy | string | `""` | Optional override for the cleanup job image pull policy. Leave empty to use the global imagePullPolicy value. |
 | wrongsecretsCleanup.podSecurityContext.enabled | bool | `true` | If true, sets the securityContext on the created pods. This is required for the podSecurityPolicy to work |
 | wrongsecretsCleanup.podSecurityContext.fsGroup | int | `2000` |  |
 | wrongsecretsCleanup.podSecurityContext.runAsGroup | int | `3000` |  |
