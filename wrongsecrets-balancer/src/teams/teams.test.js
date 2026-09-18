@@ -306,3 +306,446 @@ describe('wait-till-ready polling', () => {
     await request(app).get('/balancer/teams/team42/wait-till-ready').expect(200);
   });
 });
+
+describe('parallel team provisioning dependencies and staging barriers', () => {
+  const createDeferred = () => {
+    let resolve;
+    let reject;
+    const promise = new Promise((res, rej) => {
+      resolve = res;
+      reject = rej;
+    });
+    return { promise, resolve, reject };
+  };
+
+  const setupInstanceNotFound = () => {
+    getJuiceShopInstanceForTeamname.mockImplementation(async () => {
+      throw new Error('deployments.apps "t-team42-wrongsecrets" not found');
+    });
+    getJuiceShopInstances.mockImplementation(async () => {
+      return { items: [] };
+    });
+  };
+
+  test('TEST 1: Namespace barrier - NO Stage 2 or Stage 3 operations start before namespace resolves', async () => {
+    setupInstanceNotFound();
+    const nsDeferred = createDeferred();
+    let nsStartedResolve;
+    const nsStartedPromise = new Promise((r) => {
+      nsStartedResolve = r;
+    });
+
+    createNameSpaceForTeam.mockImplementation(() => {
+      nsStartedResolve();
+      return nsDeferred.promise;
+    });
+
+    let stage2Started = false;
+    const markStage2Started = () => {
+      stage2Started = true;
+      return Promise.resolve();
+    };
+
+    createConfigmapForTeam.mockImplementation(markStage2Started);
+    createSecretsfileForTeam.mockImplementation(markStage2Started);
+    createChallenge33SecretForTeam.mockImplementation(markStage2Started);
+    createChallenge62SecretForTeam.mockImplementation(markStage2Started);
+    createChallenge62ConfigMapForTeam.mockImplementation(markStage2Started);
+    createServiceAccountForWebTop.mockImplementation(markStage2Started);
+    createServiceForTeam.mockImplementation(markStage2Started);
+    createDesktopServiceForTeam.mockImplementation(markStage2Started);
+    createNSPsforTeam.mockImplementation(markStage2Started);
+    createK8sChallenge53DeploymentForTeam.mockImplementation(markStage2Started);
+
+    const teamCreationPromise = request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') });
+    const resPromise = teamCreationPromise.then((r) => r);
+
+    // Wait deterministically for namespace creation to start
+    await nsStartedPromise;
+
+    expect(createNameSpaceForTeam).toHaveBeenCalled();
+    expect(stage2Started).toBe(false);
+    expect(createConfigmapForTeam).not.toHaveBeenCalled();
+    expect(createK8sDeploymentForTeam).not.toHaveBeenCalled();
+
+    // Now resolve namespace
+    nsDeferred.resolve();
+    const res = await resPromise;
+    expect(res.status).toBe(200);
+    expect(stage2Started).toBe(true);
+  });
+
+  test('TEST 2: Stage 2 concurrency - independent operations start concurrently before any resolve', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+
+    const configMapDeferred = createDeferred();
+    const secretDeferred = createDeferred();
+    const saDeferred = createDeferred();
+    const challenge53Deferred = createDeferred();
+
+    const started = [];
+    const checkAllStarted = () => {
+      if (
+        started.includes('configmap') &&
+        started.includes('secretsfile') &&
+        started.includes('serviceaccount') &&
+        started.includes('challenge53')
+      ) {
+        allStartedResolve();
+      }
+    };
+
+    let allStartedResolve;
+    const allStartedPromise = new Promise((r) => {
+      allStartedResolve = r;
+    });
+
+    createConfigmapForTeam.mockImplementation(() => {
+      started.push('configmap');
+      checkAllStarted();
+      return configMapDeferred.promise;
+    });
+    createSecretsfileForTeam.mockImplementation(() => {
+      started.push('secretsfile');
+      checkAllStarted();
+      return secretDeferred.promise;
+    });
+    createServiceAccountForWebTop.mockImplementation(() => {
+      started.push('serviceaccount');
+      checkAllStarted();
+      return saDeferred.promise;
+    });
+    createK8sChallenge53DeploymentForTeam.mockImplementation(() => {
+      started.push('challenge53');
+      checkAllStarted();
+      return challenge53Deferred.promise;
+    });
+
+    const teamCreationPromise = request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') });
+    const resPromise = teamCreationPromise.then((r) => r);
+
+    // Deterministically wait until all 4 have concurrently started without resolving any
+    await allStartedPromise;
+
+    expect(started).toContain('configmap');
+    expect(started).toContain('secretsfile');
+    expect(started).toContain('serviceaccount');
+    expect(started).toContain('challenge53');
+
+    // Stage 3 must not have started yet
+    expect(createK8sDeploymentForTeam).not.toHaveBeenCalled();
+    expect(createDesktopDeploymentForTeam).not.toHaveBeenCalled();
+    expect(createRoleForWebTop).not.toHaveBeenCalled();
+
+    // Now resolve all
+    configMapDeferred.resolve();
+    secretDeferred.resolve();
+    saDeferred.resolve();
+    challenge53Deferred.resolve();
+
+    const res = await resPromise;
+    expect(res.status).toBe(200);
+  });
+
+  test('TEST 3: Stage 3 barrier - Stage 3 does NOT start until ALL Stage 2 promises resolve', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+
+    const d1 = createDeferred(); // Configmap
+    const d2 = createDeferred(); // Secret
+    const d3 = createDeferred(); // ServiceAccount
+
+    let d1StartedResolve;
+    const d1Started = new Promise((r) => {
+      d1StartedResolve = r;
+    });
+    let d2StartedResolve;
+    const d2Started = new Promise((r) => {
+      d2StartedResolve = r;
+    });
+    let d3StartedResolve;
+    const d3Started = new Promise((r) => {
+      d3StartedResolve = r;
+    });
+
+    createConfigmapForTeam.mockImplementation(() => {
+      d1StartedResolve();
+      return d1.promise;
+    });
+    createSecretsfileForTeam.mockImplementation(() => {
+      d2StartedResolve();
+      return d2.promise;
+    });
+    createServiceAccountForWebTop.mockImplementation(() => {
+      d3StartedResolve();
+      return d3.promise;
+    });
+
+    let stage3Started = false;
+    createK8sDeploymentForTeam.mockImplementation(() => {
+      stage3Started = true;
+      return Promise.resolve();
+    });
+
+    const teamCreationPromise = request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') });
+    const resPromise = teamCreationPromise.then((r) => r);
+
+    // Wait until all 3 have started
+    await Promise.all([d1Started, d2Started, d3Started]);
+    expect(stage3Started).toBe(false);
+
+    // Resolve 1st Stage 2 promise
+    d1.resolve();
+    await new Promise((r) => setImmediate(r));
+    expect(stage3Started).toBe(false);
+
+    // Resolve 2nd Stage 2 promise
+    d2.resolve();
+    await new Promise((r) => setImmediate(r));
+    expect(stage3Started).toBe(false);
+
+    // Resolve 3rd Stage 2 promise - now all Stage 2 promises are resolved
+    d3.resolve();
+
+    const res = await resPromise;
+    expect(res.status).toBe(200);
+    expect(stage3Started).toBe(true);
+  });
+
+  test('TEST 4: Challenge 53 to Role barrier - createRoleForWebTop does NOT start before Challenge 53 deployment resolves', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+
+    const challenge53Deferred = createDeferred();
+    let challenge53StartedResolve;
+    const challenge53Started = new Promise((r) => {
+      challenge53StartedResolve = r;
+    });
+
+    createK8sChallenge53DeploymentForTeam.mockImplementation(() => {
+      challenge53StartedResolve();
+      return challenge53Deferred.promise;
+    });
+
+    let roleStarted = false;
+    createRoleForWebTop.mockImplementation(() => {
+      roleStarted = true;
+      return Promise.resolve();
+    });
+
+    const teamCreationPromise = request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') });
+    const resPromise = teamCreationPromise.then((r) => r);
+
+    await challenge53Started;
+    expect(createK8sChallenge53DeploymentForTeam).toHaveBeenCalled();
+    expect(roleStarted).toBe(false);
+    expect(createRoleForWebTop).not.toHaveBeenCalled();
+
+    challenge53Deferred.resolve();
+    const res = await resPromise;
+    expect(res.status).toBe(200);
+    expect(roleStarted).toBe(true);
+  });
+
+  test('TEST 5: Desktop Deployment dependency - createDesktopDeploymentForTeam does NOT start before ServiceAccount resolves', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+
+    const saDeferred = createDeferred();
+    let saStartedResolve;
+    const saStarted = new Promise((r) => {
+      saStartedResolve = r;
+    });
+
+    createServiceAccountForWebTop.mockImplementation(() => {
+      saStartedResolve();
+      return saDeferred.promise;
+    });
+
+    let desktopDeploymentStarted = false;
+    createDesktopDeploymentForTeam.mockImplementation(() => {
+      desktopDeploymentStarted = true;
+      return Promise.resolve();
+    });
+
+    const teamCreationPromise = request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') });
+    const resPromise = teamCreationPromise.then((r) => r);
+
+    await saStarted;
+    expect(createServiceAccountForWebTop).toHaveBeenCalled();
+    expect(desktopDeploymentStarted).toBe(false);
+
+    saDeferred.resolve();
+    const res = await resPromise;
+    expect(res.status).toBe(200);
+    expect(desktopDeploymentStarted).toBe(true);
+  });
+
+  test('TEST 6: RoleBinding barrier - createRoleBindingForWebtop does NOT start before createRoleForWebTop resolves', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+
+    const roleDeferred = createDeferred();
+    let roleStartedResolve;
+    const roleStarted = new Promise((r) => {
+      roleStartedResolve = r;
+    });
+
+    createRoleForWebTop.mockImplementation(() => {
+      roleStartedResolve();
+      return roleDeferred.promise;
+    });
+
+    let roleBindingStarted = false;
+    createRoleBindingForWebtop.mockImplementation(() => {
+      roleBindingStarted = true;
+      return Promise.resolve();
+    });
+
+    const teamCreationPromise = request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') });
+    const resPromise = teamCreationPromise.then((r) => r);
+
+    await roleStarted;
+    expect(createRoleForWebTop).toHaveBeenCalled();
+    expect(roleBindingStarted).toBe(false);
+
+    roleDeferred.resolve();
+    const res = await resPromise;
+    expect(res.status).toBe(200);
+    expect(roleBindingStarted).toBe(true);
+  });
+
+  test('TEST 7: WrongSecrets Deployment dependencies - does NOT start before ConfigMaps and Secrets resolve', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+
+    const secret33Deferred = createDeferred();
+    let secret33StartedResolve;
+    const secret33Started = new Promise((r) => {
+      secret33StartedResolve = r;
+    });
+
+    createChallenge33SecretForTeam.mockImplementation(() => {
+      secret33StartedResolve();
+      return secret33Deferred.promise;
+    });
+
+    let wrongsecretsDeploymentStarted = false;
+    createK8sDeploymentForTeam.mockImplementation(() => {
+      wrongsecretsDeploymentStarted = true;
+      return Promise.resolve();
+    });
+
+    const teamCreationPromise = request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') });
+    const resPromise = teamCreationPromise.then((r) => r);
+
+    await secret33Started;
+    expect(createChallenge33SecretForTeam).toHaveBeenCalled();
+    expect(wrongsecretsDeploymentStarted).toBe(false);
+
+    secret33Deferred.resolve();
+    const res = await resPromise;
+    expect(res.status).toBe(200);
+    expect(wrongsecretsDeploymentStarted).toBe(true);
+  });
+
+  test('TEST 8: Stage 2 failure returns 500 and prevents Stage 3 execution', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+    createConfigmapForTeam.mockRejectedValue(new Error('ConfigMap creation failed'));
+
+    const res = await request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') })
+      .expect(500);
+
+    expect(res.body).toEqual({ message: 'Failed to Create Instance' });
+    expect(createK8sDeploymentForTeam).not.toHaveBeenCalled();
+    expect(createDesktopDeploymentForTeam).not.toHaveBeenCalled();
+    expect(createRoleForWebTop).not.toHaveBeenCalled();
+    expect(createRoleBindingForWebtop).not.toHaveBeenCalled();
+  });
+
+  test('TEST 9: Stage 3 failure returns 500 and prevents Stage 4 RoleBinding execution', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+    createRoleForWebTop.mockRejectedValue(new Error('Role creation failed'));
+
+    const res = await request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') })
+      .expect(500);
+
+    expect(res.body).toEqual({ message: 'Failed to Create Instance' });
+    expect(createRoleBindingForWebtop).not.toHaveBeenCalled();
+  });
+
+  test('TEST 10: Namespace failure returns 500 and prevents all namespaced resources from starting', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockRejectedValue(new Error('Namespace quota exceeded'));
+
+    const res = await request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') })
+      .expect(500);
+
+    expect(res.body).toEqual({ message: 'Failed to Create Instance' });
+    expect(createConfigmapForTeam).not.toHaveBeenCalled();
+    expect(createSecretsfileForTeam).not.toHaveBeenCalled();
+    expect(createChallenge33SecretForTeam).not.toHaveBeenCalled();
+    expect(createChallenge62SecretForTeam).not.toHaveBeenCalled();
+    expect(createChallenge62ConfigMapForTeam).not.toHaveBeenCalled();
+    expect(createServiceAccountForWebTop).not.toHaveBeenCalled();
+    expect(createServiceForTeam).not.toHaveBeenCalled();
+    expect(createDesktopServiceForTeam).not.toHaveBeenCalled();
+    expect(createNSPsforTeam).not.toHaveBeenCalled();
+    expect(createK8sChallenge53DeploymentForTeam).not.toHaveBeenCalled();
+    expect(createK8sDeploymentForTeam).not.toHaveBeenCalled();
+    expect(createDesktopDeploymentForTeam).not.toHaveBeenCalled();
+    expect(createRoleForWebTop).not.toHaveBeenCalled();
+    expect(createRoleBindingForWebtop).not.toHaveBeenCalled();
+  });
+
+  test('TEST 11: Stage 4 RoleBinding failure returns 500', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+    createRoleBindingForWebtop.mockRejectedValue(new Error('RoleBinding creation failed'));
+
+    const res = await request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') })
+      .expect(500);
+
+    expect(res.body).toEqual({ message: 'Failed to Create Instance' });
+  });
+
+  test('TEST 12: Multiple concurrent Stage 2 rejections cleanly return 500 without crashing', async () => {
+    setupInstanceNotFound();
+    createNameSpaceForTeam.mockResolvedValue();
+    createConfigmapForTeam.mockRejectedValue(new Error('ConfigMap error'));
+    createSecretsfileForTeam.mockRejectedValue(new Error('Secret error'));
+    createServiceAccountForWebTop.mockRejectedValue(new Error('SA error'));
+
+    const res = await request(app)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') })
+      .expect(500);
+
+    expect(res.body).toEqual({ message: 'Failed to Create Instance' });
+  });
+});
