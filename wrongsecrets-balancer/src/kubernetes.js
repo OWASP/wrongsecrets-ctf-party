@@ -89,6 +89,14 @@ const challenge62DocumentId = process.env.CHALLENGE62_DOCUMENT_ID;
 const wrongSecretsContainterTag = process.env.WRONGSECRETS_TAG;
 const wrongSecretsDekstopTag = process.env.WRONGSECRETS_DESKTOP_TAG;
 const heroku_wrongsecret_ctf_url = process.env.REACT_APP_HEROKU_WRONGSECRETS_URL;
+const challenge74Secret = process.env.CHALLENGE74_SECRET;
+const challenge74LlamaImage =
+  process.env.CHALLENGE74_LLAMA_IMAGE ||
+  'ghcr.io/owasp/wrongsecrets/wrongsecrets-llamaserver';
+const challenge74LlamaTag =
+  process.env.CHALLENGE74_LLAMA_TAG || 'latest';
+const challenge74Enabled =
+  process.env.CHALLENGE74_ENABLED === 'true';
 
 const { get } = require('./config');
 
@@ -601,6 +609,149 @@ const getChallenge53InstanceForTeam = async (team) => {
   }
 };
 
+const createChallenge74LlamaContainer = () => ({
+  name: 'llama-server',
+
+  image: `${challenge74LlamaImage}:${challenge74LlamaTag}`,
+  imagePullPolicy: get('wrongsecrets.imagePullPolicy'),
+
+  ports: [
+    {
+      name: 'llama',
+      containerPort: 1234,
+      protocol: 'TCP',
+    },
+  ],
+
+  volumeMounts: [
+    {
+      name: 'challenge74-config',
+      mountPath: '/config',
+      readOnly: true,
+    },
+    {
+      name: 'llama-tmp',
+      mountPath: '/tmp',
+    },
+  ],
+
+  securityContext: {
+    allowPrivilegeEscalation: false,
+    readOnlyRootFilesystem: false,
+    runAsNonRoot: true,
+    capabilities: {
+      drop: ['ALL'],
+    },
+    seccompProfile: {
+      type: 'RuntimeDefault',
+    },
+  },
+
+  readinessProbe: {
+    tcpSocket: {
+      port: 'llama',
+    },
+    initialDelaySeconds: 10,
+    timeoutSeconds: 2,
+    periodSeconds: 5,
+    failureThreshold: 12,
+  },
+
+  livenessProbe: {
+    tcpSocket: {
+      port: 'llama',
+    },
+    initialDelaySeconds: 30,
+    timeoutSeconds: 2,
+    periodSeconds: 10,
+    failureThreshold: 3,
+  },
+
+  resources: {
+    requests: {
+      cpu: '250m',
+      memory: '1Gi',
+    },
+    limits: {
+      cpu: '1000m',
+      memory: '2Gi',
+    },
+  },
+});
+
+const createChallenge74SecretForTeam = async (team) => {
+  if (!challenge74Secret) {
+    throw new Error(
+      'CHALLENGE74_SECRET must be configured when Challenge 74 is enabled'
+    );
+  }
+
+  const secret = {
+    apiVersion: 'v1',
+    kind: 'Secret',
+    type: 'Opaque',
+    metadata: {
+      name: 'challenge74',
+      namespace: `t-${team}`,
+    },
+    stringData: {
+      secret: challenge74Secret,
+    },
+  };
+
+  return k8sCoreApi
+    .createNamespacedSecret({
+      namespace: `t-${team}`,
+      body: secret,
+    })
+    .catch((error) => {
+      throw new Error(
+        `Failed to create Challenge 74 secret: ${
+          error.body?.message || error.message
+        }`,
+        { cause: error }
+      );
+    });
+};
+
+const deleteChallenge74SecretForTeam = async (team) => {
+  logger.info(`Deleting Challenge 74 secret for team ${team}`);
+
+  try {
+    const validatedTeamName = validateTeamName(team);
+    const secretName = 'challenge74';
+    await k8sCoreApi.deleteNamespacedSecret({ name: secretName, namespace: `t-${team}` });
+    logger.info(`Successfully deleted Challenge 74 secret for team ${team}`);
+  } catch (error) {
+    if (error.statusCode === 404) {
+      logger.warn(`Challenge 74 secret not found for team ${team}, nothing to delete`);
+      return;
+    }
+    logger.error(`Failed to delete Challenge 74 secret for team ${team}:`, error.message);
+    throw new Error(`Failed to delete Challenge 74 secret: ${error.message}`, { cause: error });
+  }
+};
+
+const createChallenge74PersonalityConfigMapForTeam = async (team) => {
+  const configMap = {
+    apiVersion: 'v1',
+    kind: 'ConfigMap',
+    metadata: {
+      name: 'challenge74-personality',
+      namespace: `t-${team}`,
+    },
+    data: {
+      'personality.txt':
+        process.env.CHALLENGE74_PERSONALITY ||
+        'You are a helpful AI assistant.',
+    },
+  };
+
+  return k8sCoreApi.createNamespacedConfigMap({
+    namespace: `t-${team}`,
+    body: configMap,
+  });
+};
 // Add function to delete Challenge 53 deployment
 const deleteChallenge53DeploymentForTeam = async (team) => {
   logger.info(`Deleting Challenge 53 deployment for team ${team}`);
@@ -630,6 +781,12 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
   if (useSealedSecrets) {
     // Create sealed secrets for the team
     await createSealedChallenge33SecretForTeam(team);
+  }
+
+  // Challenge 74 is optional. Only provision its resources when enabled.
+  if (challenge74Enabled) {
+    await createChallenge74SecretForTeam(team);
+    await createChallenge74PersonalityConfigMapForTeam(team);
   }
 
   const deploymentWrongSecretsConfig = {
@@ -731,6 +888,19 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                     },
                   },
                 },
+                ...(challenge74Enabled
+                  ? [
+                      {
+                        name: 'CHALLENGE_74_SECRET',
+                        valueFrom: {
+                          secretKeyRef: {
+                            name: 'challenge74',
+                            key: 'secret',
+                          },
+                        },
+                      },
+                    ]
+                  : []),
                 {
                   name: 'CHALLENGE33',
                   valueFrom: {
@@ -804,6 +974,7 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
               ],
             },
+            ...(challenge74Enabled ? [createChallenge74LlamaContainer()] : []),
           ],
           volumes: [
             // {
@@ -816,6 +987,20 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
               name: 'ephemeral',
               emptyDir: {},
             },
+            ...(challenge74Enabled
+              ? [
+                  {
+                    name: 'challenge74-config',
+                    configMap: {
+                      name: 'challenge74-personality',
+                    },
+                  },
+                  {
+                    name: 'llama-tmp',
+                    emptyDir: {},
+                  },
+                ]
+              : []),
             // ...get('wrongsecrets.volumes', []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
@@ -2734,6 +2919,10 @@ module.exports = {
   createSealedSecretForTeam,
   createSealedChallenge33SecretForTeam,
   getSealedSecretsPublicKey,
+  createChallenge74LlamaContainer,
+  createChallenge74SecretForTeam,
+  deleteChallenge74SecretForTeam,
+  createChallenge74PersonalityConfigMapForTeam,
   createNameSpaceForTeam,
   createK8sDeploymentForTeam,
   createK8sChallenge53DeploymentForTeam,

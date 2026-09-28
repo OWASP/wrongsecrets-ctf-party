@@ -1,98 +1,148 @@
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: wrongsecrets-balancer
   labels:
-    app: wrongsecrets-balancer
     {{- include "wrongsecrets-ctf-party.labels" . | nindent 4 }}
+
 spec:
   replicas: {{ .Values.balancer.replicas }}
+
   selector:
     matchLabels:
       {{- include "wrongsecrets-ctf-party.selectorLabels" . | nindent 6 }}
+
   template:
     metadata:
       annotations:
         checksum/config: {{ include (print $.Template.BasePath "/wrongsecrets-balancer/config-map.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/wrongsecrets-balancer/secret.yaml") . | sha256sum }}
+
       labels:
         app: wrongsecrets-balancer
         {{- include "wrongsecrets-ctf-party.selectorLabels" . | nindent 8 }}
+
     spec:
       serviceAccountName: wrongsecrets-balancer
+
       {{- if .Values.balancer.podSecurityContext.enabled }}
       securityContext:
         {{- omit .Values.balancer.podSecurityContext "enabled" | toYaml | nindent 8 }}
       {{- end }}
+
       containers:
         - name: {{ .Chart.Name }}
+
           image: '{{ .Values.balancer.repository }}:{{ .Values.balancer.tag | default (printf "v%s" .Chart.Version) }}'
+
           imagePullPolicy: {{ default .Values.imagePullPolicy .Values.balancer.imagePullPolicy | quote }}
+
           ports:
             - name: http
               containerPort: {{ .Values.balancer.containerPort }}
+
           {{- if .Values.balancer.livenessProbe }}
           livenessProbe:
-          {{- toYaml .Values.balancer.livenessProbe | nindent 12 }}
+            {{- toYaml .Values.balancer.livenessProbe | nindent 12 }}
           {{- end }}
+
           {{- if .Values.balancer.readinessProbe }}
           readinessProbe:
-          {{- toYaml .Values.balancer.readinessProbe | nindent 12 }}
+            {{- toYaml .Values.balancer.readinessProbe | nindent 12 }}
           {{- end }}
+
           env:
-            {{- range $k, $v := .Values.balancer.env}}
+            {{- range $k, $v := .Values.balancer.env }}
             {{- if ne $k "REACT_APP_CREATE_TEAM_HMAC_KEY" }}
             - name: {{ $k }}
               value: {{ $v | quote }}
             {{- end }}
             {{- end }}
+
             - name: WRONGSECRETS_TAG
-              value: {{ .Values.wrongsecrets.tag}}
+              value: {{ .Values.wrongsecrets.tag }}
+
             - name: WRONGSECRETS_DESKTOP_TAG
               value: {{ .Values.virtualdesktop.tag }}
+
             - name: REACT_APP_CREATE_TEAM_HMAC_KEY
               valueFrom:
                 secretKeyRef:
                   name: wrongsecrets-balancer-secret
                   key: createTeamHmacKey
+
             - name: COOKIEPARSER_SECRET
               valueFrom:
                 secretKeyRef:
                   name: wrongsecrets-balancer-secret
                   key: cookieParserSecret
+
             - name: ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: wrongsecrets-balancer-secret
                   key: adminPassword
+
             - name: GOOGLE_CLOUD_CREDENTIALS
               valueFrom:
                 secretKeyRef:
                   name: wrongsecrets-challenge62-secret
                   key: credentials
+
+            # Challenge 74
+            - name: CHALLENGE74_ENABLED
+              value: {{ .Values.challenges.challenge74.enabled | quote }}
+
+            {{- if .Values.challenges.challenge74.enabled }}
+
+            - name: CHALLENGE74_LLAMA_IMAGE
+              value: {{ .Values.challenges.challenge74.llama.image | quote }}
+
+            - name: CHALLENGE74_LLAMA_TAG
+              value: {{ .Values.challenges.challenge74.llama.tag | quote }}
+
+            - name: CHALLENGE74_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: wrongsecrets-ctf-party-secrets
+                  key: challenge74
+
+            - name: CHALLENGE74_PERSONALITY
+              value: {{ .Values.challenges.challenge74.personality | quote }}
+
+            {{- end }}
+
           {{- if .Values.balancer.containerSecurityContext.enabled }}
           securityContext:
             {{- omit .Values.balancer.containerSecurityContext "enabled" | toYaml | nindent 12 }}
           {{- end }}
+
           {{- if .Values.balancer.volumeMounts }}
           volumeMounts:
             {{- toYaml .Values.balancer.volumeMounts | nindent 12 }}
           {{- end }}
+
           resources:
             {{- toYaml .Values.balancer.resources | nindent 12 }}
+
       {{- if .Values.balancer.volumes }}
       volumes:
         {{- toYaml .Values.balancer.volumes | nindent 8 }}
       {{- end }}
+
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
       {{- with .Values.balancer.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+
       {{- with .Values.balancer.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+```
