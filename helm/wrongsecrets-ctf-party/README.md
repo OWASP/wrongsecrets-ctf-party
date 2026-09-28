@@ -123,6 +123,11 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | balancer.tolerations | list | `[]` | Optional Configure kubernetes toleration for the created wrongsecrets instances (see: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) |
 | balancer.volumeMounts[0] | object | `{"mountPath":"/home/app/config/","name":"config-volume"}` | If true, creates a volumeMount for the created pods. This is required for the podSecurityPolicy to work |
 | balancer.volumes[0] | object | `{"configMap":{"name":"wrongsecrets-balancer-config"},"name":"config-volume"}` | If true, creates a volume for the created pods. This is required for the podSecurityPolicy to work |
+| challenges.challenge74.enabled | bool | `true` | Pulls and runs the llama server sidecar for challenge 74 when true. |
+| challenges.challenge74.llama.image | string | `"ghcr.io/owasp/wrongsecrets/wrongsecrets-llamaserver"` | Image used for the challenge 74 llama server. |
+| challenges.challenge74.llama.tag | string | `"master"` | Tag used for the challenge 74 llama server. |
+| challenges.challenge74.personality | string | `"You are a helpful AI assistant."` | Personality prompt written into the team configmap. Defaults to a generic assistant prompt in the balancer. |
+| challenges.challenge74.secret | string | `""` | Secret value injected as CHALLENGE74_SECRET. A random value is generated when this is empty and challenge 74 is enabled. |
 | imagePullPolicy | string | `"IfNotPresent"` |  |
 | ingress.annotations | object | `{}` | Annotations to be added to the ingress object. |
 | ingress.enabled | bool | `false` | If true, Wrongsecrets will create an Ingress object for the balancer service. Useful if you want to expose the balancer service externally for example with a loadbalancer in order to view any webpages that are hosted on the balancer service. |
@@ -187,7 +192,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | virtualdesktop.securityContext.readOnlyRootFilesystem | bool | `true` |  |
 | virtualdesktop.securityContext.runAsNonRoot | bool | `true` |  |
 | virtualdesktop.securityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
-| virtualdesktop.tag | string | `"1.14.0RC1"` |  |
+| virtualdesktop.tag | string | `"1.14.0"` |  |
 | virtualdesktop.tolerations | list | `[]` |  |
 | wrongsecrets.affinity | object | `{}` | Optional Configure kubernetes scheduling affinity for the created Wrongsecrets instances (see: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) |
 | wrongsecrets.config | string | See values.yaml for full details | Specify a custom Wrongsecrets config.yaml. See the Wrongsecrets Docs for any needed ENVs: https://github.com/OWASP/wrongsecrets |
@@ -200,7 +205,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | wrongsecrets.resources | object | `{"requests":{"cpu":"256Mi","memory":"300Mi"}}` | Optional resources definitions to set for each Wrongsecrets instance |
 | wrongsecrets.runtimeClassName | string | `nil` | Optional Can be used to configure the runtime class for the Wrongsecrets instances pods to add an additional layer of isolation to reduce the impact of potential container escapes. (see: https://kubernetes.io/docs/concepts/containers/runtime-class/) |
 | wrongsecrets.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Optional securityContext definitions to set for each Wrongsecrets instance |
-| wrongsecrets.tag | string | `"1.14.0RC1-no-vault"` |  |
+| wrongsecrets.tag | string | `"1.14.0-no-vault"` |  |
 | wrongsecrets.tolerations | list | `[]` | Optional Configure kubernetes toleration for the created Wrongsecrets instances (see: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) |
 | wrongsecrets.volumes | list | `[]` | Optional Volumes to set for each Wrongsecrets instance (see: https://kubernetes.io/docs/concepts/storage/volumes/) |
 | wrongsecretsCleanup.affinity | object | `{}` | Optional Configure kubernetes scheduling affinity for the wrongsecretsCleanup Job(see: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) |

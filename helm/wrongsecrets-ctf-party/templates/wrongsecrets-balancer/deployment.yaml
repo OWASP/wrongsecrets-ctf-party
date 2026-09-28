@@ -1,4 +1,3 @@
-```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -90,7 +89,7 @@ spec:
                   name: wrongsecrets-challenge62-secret
                   key: credentials
 
-            # Challenge 74
+            # Challenge 74 is optional and stays off unless challenges.challenge74.enabled is true.
             - name: CHALLENGE74_ENABLED
               value: {{ .Values.challenges.challenge74.enabled | quote }}
 
@@ -145,4 +144,3 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-```

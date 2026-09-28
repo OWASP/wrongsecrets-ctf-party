@@ -91,12 +91,9 @@ const wrongSecretsDekstopTag = process.env.WRONGSECRETS_DESKTOP_TAG;
 const heroku_wrongsecret_ctf_url = process.env.REACT_APP_HEROKU_WRONGSECRETS_URL;
 const challenge74Secret = process.env.CHALLENGE74_SECRET;
 const challenge74LlamaImage =
-  process.env.CHALLENGE74_LLAMA_IMAGE ||
-  'ghcr.io/owasp/wrongsecrets/wrongsecrets-llamaserver';
-const challenge74LlamaTag =
-  process.env.CHALLENGE74_LLAMA_TAG || 'latest';
-const challenge74Enabled =
-  process.env.CHALLENGE74_ENABLED === 'true';
+  process.env.CHALLENGE74_LLAMA_IMAGE || 'ghcr.io/owasp/wrongsecrets/wrongsecrets-llamaserver';
+const challenge74LlamaTag = process.env.CHALLENGE74_LLAMA_TAG || 'master';
+const challenge74Enabled = process.env.CHALLENGE74_ENABLED === 'true';
 
 const { get } = require('./config');
 
@@ -681,9 +678,7 @@ const createChallenge74LlamaContainer = () => ({
 
 const createChallenge74SecretForTeam = async (team) => {
   if (!challenge74Secret) {
-    throw new Error(
-      'CHALLENGE74_SECRET must be configured when Challenge 74 is enabled'
-    );
+    throw new Error('CHALLENGE74_SECRET must be configured when Challenge 74 is enabled');
   }
 
   const secret = {
@@ -706,9 +701,7 @@ const createChallenge74SecretForTeam = async (team) => {
     })
     .catch((error) => {
       throw new Error(
-        `Failed to create Challenge 74 secret: ${
-          error.body?.message || error.message
-        }`,
+        `Failed to create Challenge 74 secret: ${error.body?.message || error.message}`,
         { cause: error }
       );
     });
@@ -720,7 +713,10 @@ const deleteChallenge74SecretForTeam = async (team) => {
   try {
     const validatedTeamName = validateTeamName(team);
     const secretName = 'challenge74';
-    await k8sCoreApi.deleteNamespacedSecret({ name: secretName, namespace: `t-${team}` });
+    await k8sCoreApi.deleteNamespacedSecret({
+      name: secretName,
+      namespace: `t-${validatedTeamName}`,
+    });
     logger.info(`Successfully deleted Challenge 74 secret for team ${team}`);
   } catch (error) {
     if (error.statusCode === 404) {
@@ -741,9 +737,7 @@ const createChallenge74PersonalityConfigMapForTeam = async (team) => {
       namespace: `t-${team}`,
     },
     data: {
-      'personality.txt':
-        process.env.CHALLENGE74_PERSONALITY ||
-        'You are a helpful AI assistant.',
+      'personality.txt': process.env.CHALLENGE74_PERSONALITY || 'You are a helpful AI assistant.',
     },
   };
 
