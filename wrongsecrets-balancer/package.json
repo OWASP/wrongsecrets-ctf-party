@@ -1,6 +1,6 @@
 {
   "name": "wrongsecrets-balancer",
-  "version": "1.14.0",
+  "version": "1.14.0RC1",
   "description": "Run Capture the Flags and Security Trainings with OWASP Wrongsecrets (based on multijuicer from Iteratec). Requires node26",
   "main": "src/index.js",
   "engines": {
