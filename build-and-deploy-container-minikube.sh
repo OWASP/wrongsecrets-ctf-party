@@ -13,11 +13,30 @@ echo "let's go!"
 
 wait 10
 
+wait_for_endpoints() {
+  local service="$1"
+  local attempt
+  local ready
+  for attempt in $(seq 1 90); do
+    ready="$(kubectl get endpoints "$service" -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null || true)"
+    if [ -n "$ready" ]; then
+      return 0
+    fi
+    sleep 5
+  done
+  echo "Timed out waiting for endpoints on ${service}" >&2
+  kubectl get pods -o wide >&2 || true
+  return 1
+}
+
+echo "Waiting for balancer, Prometheus, and Grafana endpoints..."
+wait_for_endpoints wrongsecrets-balancer
 kubectl port-forward service/wrongsecrets-balancer 3000:3000 &
 
 echo "Balancer is running on http://localhost:3000"
 
-wait 10
+wait_for_endpoints wrongsecrets-prometheus
+wait_for_endpoints wrongsecrets-grafana
 
 kubectl port-forward svc/wrongsecrets-grafana 8080:80 &
 
