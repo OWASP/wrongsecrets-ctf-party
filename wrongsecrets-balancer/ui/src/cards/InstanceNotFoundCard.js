@@ -6,14 +6,11 @@ import { CenteredCard } from '../Components';
 
 import warning from './warning.svg';
 
-const WarningIcon = styled.img`
+const WarningIcon = styled.img.attrs({ src: warning })`
   height: 48px;
   width: auto;
   margin-right: 12px;
 `;
-WarningIcon.defaultProps = {
-  src: warning,
-};
 
 export const InstanceNotFoundCard = () => {
   return (
