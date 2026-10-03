@@ -18,20 +18,13 @@ const Header = styled.div`
   }
 `;
 
-const MJLogo = styled.img`
+const MJLogo = styled.img.attrs({ src: multiJuicerLogo })`
   height: 32px;
 `;
-MJLogo.defaultProps = {
-  src: multiJuicerLogo,
-};
 
-const WSLogo = styled.img`
+const WSLogo = styled.img.attrs({ src: wrongsecretsLogo })`
   height: 64px;
 `;
-
-WSLogo.defaultProps = {
-  src: wrongsecretsLogo,
-};
 
 const HeaderCard = styled(Card)`
   width: ${(props) => (props.wide ? '70vw' : '50vw')};

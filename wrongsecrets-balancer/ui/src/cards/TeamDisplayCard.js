@@ -17,14 +17,11 @@ const TeamDisplayCardWrapper = styled(BodyCard)`
   }
 `;
 
-const AstronautIcon = styled.img`
+const AstronautIcon = styled.img.attrs({ src: astronaut })`
   height: 48px;
   width: auto;
   margin-right: 12px;
 `;
-AstronautIcon.defaultProps = {
-  src: astronaut,
-};
 
 const TeamDisplayTextWrapper = styled.div`
   flex-grow: 1;
