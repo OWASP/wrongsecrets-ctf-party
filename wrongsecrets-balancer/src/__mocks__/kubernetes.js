@@ -21,6 +21,8 @@ module.exports = {
   getJuiceShopInstances: jest.fn(),
   createK8sChallenge53DeploymentForTeam: jest.fn(),
   deletePodForTeam: jest.fn(),
+  deleteNamespaceForTeam: jest.fn(),
+  deleteDesktopPodForTeam: jest.fn(),
   updateLastRequestTimestampForTeam: jest.fn(),
   changePasscodeHashForTeam: jest.fn(),
 };

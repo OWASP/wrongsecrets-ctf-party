@@ -12,6 +12,7 @@ const {
   deleteDesktopPodForTeam,
   deleteChallenge53DeploymentForTeam,
 } = require('../kubernetes');
+const { evictConnectionCache } = require('../proxy/proxy');
 
 const { get } = require('../config');
 const { logger } = require('../logger');
@@ -96,6 +97,7 @@ async function restartInstance(req, res) {
     const teamname = req.params.team;
     logger.info(`Restarting deployment for team: '${teamname}'`);
 
+    evictConnectionCache(teamname);
     await deletePodForTeam(teamname);
 
     res.send();
@@ -110,6 +112,7 @@ async function restartDesktopInstance(req, res) {
     const teamname = req.params.team;
     logger.info(`Restarting Dektopdeployment for team: '${teamname}'`);
 
+    evictConnectionCache(teamname);
     await deleteDesktopPodForTeam(teamname);
 
     res.send();
@@ -123,6 +126,7 @@ async function restartChallenge53Deployment(req, res) {
   try {
     const teamname = req.params.team;
     logger.info(`Restarting challenge53 for team: '${teamname}'`);
+    evictConnectionCache(teamname);
     await deleteChallenge53DeploymentForTeam(teamname);
     res.send();
   } catch (error) {
@@ -140,6 +144,7 @@ async function deleteInstance(req, res) {
     const teamname = req.params.team;
     logger.info(`Deleting deployment for team: '${teamname}'`);
 
+    evictConnectionCache(teamname);
     await deleteNamespaceForTeam(teamname);
 
     res.send();
