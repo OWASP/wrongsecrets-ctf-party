@@ -3,7 +3,7 @@
     "node": ">=26.0.0"
   },
   "scripts": {
-    "test": "npm test --prefix wrongsecrets-balancer && npm test --prefix cleaner",
+    "test": "npm test --prefix wrongsecrets-balancer && CI=true npm test --prefix wrongsecrets-balancer/ui && npm test --prefix cleaner",
     "test-cypress": "K8S_ENV=mock CYPRESS_ADMIN_PASSWORD=$(kubectl get secrets wrongsecrets-balancer-secret -o=jsonpath='{.data.adminPassword}' | base64 --decode || echo 'admin') npm run test-cypress --prefix wrongsecrets-balancer"
   },
   "devDependencies": {
