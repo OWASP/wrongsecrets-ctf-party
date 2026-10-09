@@ -42,43 +42,65 @@ const keyDifficultyMapping = Object.freeze({
  * @param {import("express").Response} res
  */
 async function getTopTeams(req, res) {
-  const instances = await getJuiceShopInstances();
+  try {
+    const instances = await getJuiceShopInstances();
 
-  logger.debug(`Listing teams`);
+    logger.debug('Listing teams');
 
-  const teams = instances.body.items.map((team) => {
-    const challengeProgress = JSON.parse(
-      team.metadata.annotations['wrongsecrets-ctf-party/challenges'] ?? '[]'
-    ).map((progress) => {
-      const difficulty = keyDifficultyMapping[progress.key];
+    const items = instances?.items || instances?.body?.items || [];
 
-      if (difficulty === undefined) {
-        logger.warn(
-          `Difficulty for challenge "${progress.key}" is unknown. MultiJuicer version might be incompatible with the Juice Shop version used.`
-        );
+    const teams = items.map((team) => {
+      let challengeProgress;
+      try {
+        const rawProgress =
+          team.metadata?.annotations?.['wrongsecrets-ctf-party/challenges'] ?? '[]';
+        challengeProgress = JSON.parse(rawProgress);
+      } catch (err) {
+        logger.warn(`Failed to parse challenges annotation for team ${team.metadata?.name}:`, err);
+        challengeProgress = [];
+      }
+
+      const scoredChallenges = challengeProgress.map((progress) => {
+        let difficulty = keyDifficultyMapping[progress.key];
+
+        if (difficulty === undefined) {
+          logger.warn(
+            `Difficulty for challenge "${progress.key}" is unknown. Falling back to default difficulty.`
+          );
+          difficulty = 1;
+        }
+
+        return {
+          ...progress,
+          difficulty,
+        };
+      });
+
+      let score = 0;
+      for (const { difficulty } of scoredChallenges) {
+        score += (difficulty || 1) * 10;
       }
 
       return {
-        ...progress,
-        difficulty,
+        name: team.metadata?.labels?.team || team.metadata?.name,
+        score,
+        challenges: scoredChallenges,
       };
     });
 
-    let score = 0;
-    for (const { difficulty } of challengeProgress) {
-      score += difficulty * 10;
-    }
+    teams.sort((a, b) => b.score - a.score);
+    // Get the top 25 teams
+    const topTeams = teams.slice(0, 25);
 
-    return { name: team.metadata.labels.team, score, challenges: challengeProgress };
-  });
-
-  teams.sort((a, b) => b.score - a.score);
-  // Get the 25 teams with the highest score
-  const topTeams = teams.slice(0, Math.min(teams.length, 24));
-
-  res.status(200).send({ totalTeams: instances.length, teams: topTeams });
+    return res.status(200).send({ totalTeams: items.length, teams: topTeams });
+  } catch (error) {
+    logger.error('Failed to get scoreboard data:', error);
+    return res.status(500).json({ message: 'Failed to retrieve scoreboard data' });
+  }
 }
 
 router.get('/top', getTopTeams);
 
 module.exports = router;
+module.exports.getTopTeams = getTopTeams;
+module.exports.keyDifficultyMapping = keyDifficultyMapping;
