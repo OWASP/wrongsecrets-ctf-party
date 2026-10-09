@@ -1077,6 +1077,11 @@ const patchServiceAccountForTeamForAWS = async (team) => {
 };
 
 const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
+  if (challenge74Enabled) {
+    await createChallenge74SecretForTeam(team);
+    await createChallenge74PersonalityConfigMapForTeam(team);
+  }
+
   const deploymentWrongSecretsConfig = {
     metadata: {
       namespace: `t-${team}`,
@@ -1216,6 +1221,19 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
                     },
                   },
                 },
+                ...(challenge74Enabled
+                  ? [
+                      {
+                        name: 'CHALLENGE_74_SECRET',
+                        valueFrom: {
+                          secretKeyRef: {
+                            name: 'challenge74',
+                            key: 'secret',
+                          },
+                        },
+                      },
+                    ]
+                  : []),
                 // ...get('wrongsecrets.env', []),
               ],
               // envFrom: get('wrongsecrets.envFrom'),
@@ -1273,6 +1291,7 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
                 // ...get('wrongsecrets.volumeMounts', []),
               ],
             },
+            ...(challenge74Enabled ? [createChallenge74LlamaContainer()] : []),
           ],
           volumes: [
             {
@@ -1289,6 +1308,20 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
               name: 'ephemeral',
               emptyDir: {},
             },
+            ...(challenge74Enabled
+              ? [
+                  {
+                    name: 'challenge74-config',
+                    configMap: {
+                      name: 'challenge74-personality',
+                    },
+                  },
+                  {
+                    name: 'llama-tmp',
+                    emptyDir: {},
+                  },
+                ]
+              : []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
@@ -1353,6 +1386,11 @@ const createAzureSecretsProviderForTeam = async (team) => {
 };
 
 const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
+  if (challenge74Enabled) {
+    await createChallenge74SecretForTeam(team);
+    await createChallenge74PersonalityConfigMapForTeam(team);
+  }
+
   const deploymentWrongSecretsConfig = {
     metadata: {
       namespace: `t-${team}`,
@@ -1522,6 +1560,19 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
                     },
                   },
                 },
+                ...(challenge74Enabled
+                  ? [
+                      {
+                        name: 'CHALLENGE_74_SECRET',
+                        valueFrom: {
+                          secretKeyRef: {
+                            name: 'challenge74',
+                            key: 'secret',
+                          },
+                        },
+                      },
+                    ]
+                  : []),
               ],
               envFrom: get('wrongsecrets.envFrom'),
               ports: [
@@ -1578,6 +1629,7 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
                 // ...get('wrongsecrets.volumeMounts', []),
               ],
             },
+            ...(challenge74Enabled ? [createChallenge74LlamaContainer()] : []),
           ],
           volumes: [
             {
@@ -1594,6 +1646,20 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
               name: 'ephemeral',
               emptyDir: {},
             },
+            ...(challenge74Enabled
+              ? [
+                  {
+                    name: 'challenge74-config',
+                    configMap: {
+                      name: 'challenge74-personality',
+                    },
+                  },
+                  {
+                    name: 'llama-tmp',
+                    emptyDir: {},
+                  },
+                ]
+              : []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
@@ -2667,6 +2733,11 @@ const patchServiceAccountForTeamForGCP = async (team) => {
 };
 
 const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
+  if (challenge74Enabled) {
+    await createChallenge74SecretForTeam(team);
+    await createChallenge74PersonalityConfigMapForTeam(team);
+  }
+
   const deploymentWrongSecretsConfig = {
     metadata: {
       namespace: `t-${team}`,
@@ -2814,6 +2885,19 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
                     },
                   },
                 },
+                ...(challenge74Enabled
+                  ? [
+                      {
+                        name: 'CHALLENGE_74_SECRET',
+                        valueFrom: {
+                          secretKeyRef: {
+                            name: 'challenge74',
+                            key: 'secret',
+                          },
+                        },
+                      },
+                    ]
+                  : []),
               ],
               envFrom: get('wrongsecrets.envFrom'),
               ports: [
@@ -2864,6 +2948,7 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
                 },
               ],
             },
+            ...(challenge74Enabled ? [createChallenge74LlamaContainer()] : []),
           ],
           volumes: [
             {
@@ -2880,6 +2965,20 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
               name: 'ephemeral',
               emptyDir: {},
             },
+            ...(challenge74Enabled
+              ? [
+                  {
+                    name: 'challenge74-config',
+                    configMap: {
+                      name: 'challenge74-personality',
+                    },
+                  },
+                  {
+                    name: 'llama-tmp',
+                    emptyDir: {},
+                  },
+                ]
+              : []),
           ],
           tolerations: get('wrongsecrets.tolerations'),
           affinity: get('wrongsecrets.affinity'),
