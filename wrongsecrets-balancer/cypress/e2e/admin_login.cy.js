@@ -7,11 +7,13 @@ describe('Admin Login', () => {
       .to.be.a('string')
       .and.not.be.empty;
 
-    // Set up intercept for join request
+    // Set up intercept for join request and dynamics configuration
+    cy.intercept('GET', '/balancer/dynamics').as('dynamicsRequest');
     cy.intercept('POST', '/balancer/teams/admin/join').as('adminJoinRequest');
 
     // Visit the homepage to log in.
     cy.visit('/balancer/');
+    cy.wait('@dynamicsRequest');
 
     // Type "admin" as the team name and click the button.
     cy.get('[data-test-id="teamname-input"]').type('admin');
