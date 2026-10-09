@@ -23,4 +23,13 @@ module.exports = {
   deletePodForTeam: jest.fn(),
   updateLastRequestTimestampForTeam: jest.fn(),
   changePasscodeHashForTeam: jest.fn(),
+  createAWSSecretsProviderForTeam: jest.fn(),
+  patchServiceAccountForTeamForAWS: jest.fn(),
+  createAzureDeploymentForTeam: jest.fn(),
+  createAzureSecretsProviderForTeam: jest.fn(),
+  createGCPDeploymentForTeam: jest.fn(),
+  createGCPSecretsProviderForTeam: jest.fn(),
+  createIAMServiceAccountForTeam: jest.fn(),
+  bindIAMServiceAccountToWorkloadForTeam: jest.fn(),
+  patchServiceAccountForTeamForGCP: jest.fn(),
 };
