@@ -3,7 +3,8 @@
 echo "This script will patch the networkpolicies for every ns starting with 't-', and patch it to use a new cidr block."
 echo "You can use this to patch the ns when autoscaling and rebalancing kubelets breaks the network of the pods "
 
-source check-available-commands.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+source "${SCRIPT_DIR}/check-available-commands.sh"
 checkCommandsAvailable kubectl jq
 echo "executing kubectl get endpoints kubernetes -o json | jq '.subsets[0].addresses[0].ip'"
 IP_ENDPOINT_STRING=$(kubectl get endpoints kubernetes -o json | jq '.subsets[0].addresses[0].ip')
