@@ -60,6 +60,39 @@ function redirectAdminTrafficToBalancerPage(req, res, next) {
 }
 
 const connectionCache = new Map();
+const MAX_CONNECTION_CACHE_SIZE = 10000;
+const CONNECTION_CACHE_TTL_MS = 60 * 1000;
+
+function pruneConnectionCache(currentTime = Date.now()) {
+  for (const [key, timestamp] of connectionCache.entries()) {
+    if (currentTime - timestamp > CONNECTION_CACHE_TTL_MS) {
+      connectionCache.delete(key);
+    }
+  }
+  while (connectionCache.size > MAX_CONNECTION_CACHE_SIZE) {
+    const oldestKey = connectionCache.keys().next().value;
+    connectionCache.delete(oldestKey);
+  }
+}
+
+function setConnectionCache(teamname, currentTime) {
+  if (connectionCache.size >= MAX_CONNECTION_CACHE_SIZE) {
+    pruneConnectionCache(currentTime);
+  }
+  connectionCache.delete(teamname);
+  connectionCache.set(teamname, currentTime);
+}
+
+function evictConnectionCache(teamname) {
+  if (teamname) {
+    connectionCache.delete(teamname);
+  }
+}
+
+function clearConnectionCache() {
+  connectionCache.clear();
+}
+
 function shouldProxyUpgradeToVirtualDesktop(requestUrl) {
   const { pathname } = new URL(requestUrl, 'http://localhost');
   return (
@@ -141,9 +174,11 @@ async function checkIfInstanceIsUp(req, res, next) {
       return next();
     }
 
+    evictConnectionCache(teamname);
     logger.warn(`Tried to proxy for team ${teamname}, but no ready instance found.`);
     return redirectToBalancerWithMessage(res, 'instance-restarting', teamname);
   } catch (error) {
+    evictConnectionCache(teamname);
     logger.warn(`Could not find instance for team: '${teamname}'`);
     logger.warn(JSON.stringify(error));
     return redirectToBalancerWithMessage(res, 'instance-not-found', teamname);
@@ -163,12 +198,12 @@ async function updateLastConnectTimestamp(req, res, next) {
     if (connectionCache.has(teamname)) {
       const timeDifference = currentTime - connectionCache.get(teamname);
       if (timeDifference > 10000) {
-        connectionCache.set(teamname, currentTime);
+        setConnectionCache(teamname, currentTime);
         await updateLastRequestTimestampForTeam(teamname);
       }
     } else {
       await updateLastRequestTimestampForTeam(teamname);
-      connectionCache.set(teamname, currentTime);
+      setConnectionCache(teamname, currentTime);
     }
   } catch (error) {
     logger.warn(`Failed to update lastRequest timestamp for team '${teamname}'"`);
@@ -255,3 +290,8 @@ router.use(
 
 module.exports = router;
 module.exports.attachUpgradeHandler = attachUpgradeHandler;
+module.exports.evictConnectionCache = evictConnectionCache;
+module.exports.clearConnectionCache = clearConnectionCache;
+module.exports.pruneConnectionCache = pruneConnectionCache;
+module.exports.connectionCache = connectionCache;
+module.exports.MAX_CONNECTION_CACHE_SIZE = MAX_CONNECTION_CACHE_SIZE;
