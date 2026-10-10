@@ -28,6 +28,16 @@ const {
   createRoleForWebTop,
   createRoleBindingForWebtop,
   createNSPsforTeam,
+  createAWSSecretsProviderForTeam,
+  patchServiceAccountForTeamForAWS,
+  createAWSDeploymentForTeam,
+  createAzureSecretsProviderForTeam,
+  createAzureDeploymentForTeam,
+  createGCPSecretsProviderForTeam,
+  createIAMServiceAccountForTeam,
+  bindIAMServiceAccountToWorkloadForTeam,
+  patchServiceAccountForTeamForGCP,
+  createGCPDeploymentForTeam,
 } = require('../kubernetes');
 
 const validHmacFor = (teamname) =>
@@ -747,5 +757,110 @@ describe('parallel team provisioning dependencies and staging barriers', () => {
       .expect(500);
 
     expect(res.body).toEqual({ message: 'Failed to Create Instance' });
+  });
+});
+
+describe('Cloud team provisioning (AWS, Azure, GCP)', () => {
+  const setupMocks = () => {
+    getJuiceShopInstanceForTeamname.mockImplementation(async () => {
+      throw new Error('deployments.apps "t-team42-wrongsecrets" not found');
+    });
+    getJuiceShopInstances.mockImplementation(async () => {
+      return { items: [] };
+    });
+    createNameSpaceForTeam.mockResolvedValue();
+    createConfigmapForTeam.mockResolvedValue();
+    createSecretsfileForTeam.mockResolvedValue();
+    createChallenge33SecretForTeam.mockResolvedValue();
+    createChallenge62SecretForTeam.mockResolvedValue();
+    createChallenge62ConfigMapForTeam.mockResolvedValue();
+    createServiceAccountForWebTop.mockResolvedValue();
+    createServiceForTeam.mockResolvedValue();
+    createDesktopServiceForTeam.mockResolvedValue();
+    createNSPsforTeam.mockResolvedValue();
+    createK8sChallenge53DeploymentForTeam.mockResolvedValue();
+    createRoleForWebTop.mockResolvedValue();
+    createRoleBindingForWebtop.mockResolvedValue();
+    createDesktopDeploymentForTeam.mockResolvedValue();
+    createAWSSecretsProviderForTeam.mockResolvedValue();
+    patchServiceAccountForTeamForAWS.mockResolvedValue();
+    createAWSDeploymentForTeam.mockResolvedValue();
+    createAzureSecretsProviderForTeam.mockResolvedValue();
+    createAzureDeploymentForTeam.mockResolvedValue();
+    createGCPSecretsProviderForTeam.mockResolvedValue();
+    createIAMServiceAccountForTeam.mockResolvedValue();
+    bindIAMServiceAccountToWorkloadForTeam.mockResolvedValue();
+    patchServiceAccountForTeamForGCP.mockResolvedValue();
+    createGCPDeploymentForTeam.mockResolvedValue();
+  };
+
+  test('successfully creates AWS team resources in parallel stages', async () => {
+    setupMocks();
+    let cloudApp;
+    jest.isolateModules(() => {
+      process.env.K8S_ENV = 'aws';
+      cloudApp = require('../app');
+    });
+
+    const res = await request(cloudApp)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') })
+      .expect(200);
+
+    expect(res.body.message).toBe('Created Instance');
+    expect(createNameSpaceForTeam).toHaveBeenCalledWith('team42');
+    expect(createAWSSecretsProviderForTeam).toHaveBeenCalledWith('team42');
+    expect(patchServiceAccountForTeamForAWS).toHaveBeenCalledWith('team42');
+    expect(createAWSDeploymentForTeam).toHaveBeenCalledWith(
+      expect.objectContaining({ team: 'team42' })
+    );
+    expect(createRoleBindingForWebtop).toHaveBeenCalledWith('team42');
+  });
+
+  test('successfully creates Azure team resources in parallel stages', async () => {
+    setupMocks();
+    let cloudApp;
+    jest.isolateModules(() => {
+      process.env.K8S_ENV = 'azure';
+      cloudApp = require('../app');
+    });
+
+    const res = await request(cloudApp)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') })
+      .expect(200);
+
+    expect(res.body.message).toBe('Created Instance');
+    expect(createNameSpaceForTeam).toHaveBeenCalledWith('team42');
+    expect(createAzureSecretsProviderForTeam).toHaveBeenCalledWith('team42');
+    expect(createAzureDeploymentForTeam).toHaveBeenCalledWith(
+      expect.objectContaining({ team: 'team42' })
+    );
+    expect(createRoleBindingForWebtop).toHaveBeenCalledWith('team42');
+  });
+
+  test('successfully creates GCP team resources in parallel stages', async () => {
+    setupMocks();
+    let cloudApp;
+    jest.isolateModules(() => {
+      process.env.K8S_ENV = 'gcp';
+      cloudApp = require('../app');
+    });
+
+    const res = await request(cloudApp)
+      .post('/balancer/teams/team42/join')
+      .send({ hmacvalue: validHmacFor('team42') })
+      .expect(200);
+
+    expect(res.body.message).toBe('Created Instance');
+    expect(createNameSpaceForTeam).toHaveBeenCalledWith('team42');
+    expect(createGCPSecretsProviderForTeam).toHaveBeenCalledWith('team42');
+    expect(createIAMServiceAccountForTeam).toHaveBeenCalledWith('team42');
+    expect(bindIAMServiceAccountToWorkloadForTeam).toHaveBeenCalledWith('team42');
+    expect(patchServiceAccountForTeamForGCP).toHaveBeenCalledWith('team42');
+    expect(createGCPDeploymentForTeam).toHaveBeenCalledWith(
+      expect.objectContaining({ team: 'team42' })
+    );
+    expect(createRoleBindingForWebtop).toHaveBeenCalledWith('team42');
   });
 });
