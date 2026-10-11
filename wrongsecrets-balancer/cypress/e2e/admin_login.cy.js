@@ -7,15 +7,27 @@ describe('Admin Login', () => {
       .to.be.a('string')
       .and.not.be.empty;
 
+    // Set up intercept for join request and dynamics configuration
+    cy.intercept('GET', '/balancer/dynamics').as('dynamicsRequest');
+    cy.intercept('POST', '/balancer/teams/admin/join').as('adminJoinRequest');
+
     // Visit the homepage to log in.
     cy.visit('/balancer/');
+    cy.wait('@dynamicsRequest');
 
     // Type "admin" as the team name and click the button.
     cy.get('[data-test-id="teamname-input"]').type('admin');
     cy.get('[data-test-id="create-join-team-button"]').click();
 
+    // Wait for the join attempt to finish and redirect
+    cy.wait('@adminJoinRequest').then((interception) => {
+      expect(interception.response.statusCode).to.eq(401);
+    });
+
     // On the next page, type the admin password.
-    cy.get('[data-test-id="passcode-input"]').type(adminPassword);
+    cy.get('[data-test-id="passcode-input"]', { timeout: 15000 })
+      .should('be.visible')
+      .type(adminPassword);
     cy.get('[data-test-id="join-team-button"]').click();
 
     // Verify that the admin page has loaded. We give it a longer timeout (10 seconds)

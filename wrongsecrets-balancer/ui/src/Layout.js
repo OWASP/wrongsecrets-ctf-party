@@ -27,7 +27,7 @@ const WSLogo = styled.img.attrs({ src: wrongsecretsLogo })`
 `;
 
 const HeaderCard = styled(Card)`
-  width: ${(props) => (props.wide ? '70vw' : '50vw')};
+  width: ${(props) => (props.$wide || props.wide ? '70vw' : '50vw')};
   display: flex;
   justify-content: space-evenly;
   align-items: center;
@@ -126,7 +126,7 @@ export function Layout({ children, footer, siteHeader = null, wide = false }) {
       <GlobalStyles />
       <Wrapper>
         <Header>
-          <HeaderCard wide={wide}>
+          <HeaderCard $wide={Boolean(wide)}>
             <WSLogo alt="WrongSecretsLogo" /> WrongSecrets CTF, powered by
             <MJLogo alt="MultiJuicer Logo" />
             {siteHeader ? <SiteHeader>{siteHeader}</SiteHeader> : null}
