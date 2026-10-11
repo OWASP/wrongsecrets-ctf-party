@@ -666,11 +666,11 @@ const createChallenge74LlamaContainer = () => ({
 
   resources: {
     requests: {
-      cpu: '250m',
+      cpu: '500m',
       memory: '1Gi',
     },
     limits: {
-      cpu: '1000m',
+      cpu: '2000m',
       memory: '2Gi',
     },
   },
