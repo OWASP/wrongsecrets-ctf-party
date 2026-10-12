@@ -11,6 +11,7 @@ const {
   deleteNamespaceForTeam,
   deleteDesktopPodForTeam,
   deleteChallenge53DeploymentForTeam,
+  deleteChallenge74SecretForTeam,
 } = require('../kubernetes');
 const { evictConnectionCache } = require('../proxy/proxy');
 
@@ -135,6 +136,36 @@ async function restartChallenge53Deployment(req, res) {
   }
 }
 
+async function restartChallenge74Container(req, res) {
+  try {
+    const teamname = req.params.team;
+    logger.info(`Restarting challenge74 container for team: '${teamname}'`);
+
+    evictConnectionCache(teamname);
+    await deletePodForTeam(teamname);
+
+    res.send();
+  } catch (error) {
+    logger.error(error);
+    res.status(500).send();
+  }
+}
+
+async function deleteChallenge74Secret(req, res) {
+  try {
+    const teamname = req.params.team;
+    logger.info(`Deleting challenge74 secret for team: '${teamname}'`);
+
+    evictConnectionCache(teamname);
+    await deleteChallenge74SecretForTeam(teamname);
+
+    res.send();
+  } catch (error) {
+    logger.error(error);
+    res.status(500).send();
+  }
+}
+
 /**
  * @param {import("express").Request} req
  * @param {import("express").Response} res
@@ -163,5 +194,27 @@ router.post(
   validator.params(paramsSchema),
   restartChallenge53Deployment
 );
+router.post(
+  '/teams/:team/restartchallenge74',
+  validator.params(paramsSchema),
+  restartChallenge74Container
+);
+router.post(
+  '/teams/:team/restartchallenge74container',
+  validator.params(paramsSchema),
+  restartChallenge74Container
+);
+router.delete(
+  '/teams/:team/deletechallenge74',
+  validator.params(paramsSchema),
+  deleteChallenge74Secret
+);
+router.delete(
+  '/teams/:team/deletechallenge74secret',
+  validator.params(paramsSchema),
+  deleteChallenge74Secret
+);
 router.delete('/teams/:team/delete', validator.params(paramsSchema), deleteInstance);
 module.exports = router;
+module.exports.restartChallenge74Container = restartChallenge74Container;
+module.exports.deleteChallenge74Secret = deleteChallenge74Secret;

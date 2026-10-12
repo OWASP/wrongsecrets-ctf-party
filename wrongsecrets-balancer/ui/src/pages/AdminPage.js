@@ -189,6 +189,31 @@ function RestartChallenge53Button({ team }) {
   );
 }
 
+function RestartChallenge74Button({ team }) {
+  const [restarting, setRestarting] = useState(false);
+
+  const restart = async (event) => {
+    event.preventDefault();
+    setRestarting(true);
+    try {
+      await fetch(`/balancer/admin/teams/${team}/restartchallenge74`, {
+        method: 'POST',
+      });
+    } finally {
+      setRestarting(false);
+    }
+  };
+  return (
+    <SmallSecondary onClick={restart}>
+      {restarting ? (
+        <FormattedMessage id="admin_table.restarting" defaultMessage="Restarting..." />
+      ) : (
+        <FormattedMessage id="admin_table.restart" defaultMessage="Restart-C74" />
+      )}
+    </SmallSecondary>
+  );
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function DeleteInstanceButton({ team }) {
@@ -346,6 +371,8 @@ export default function AdminPage() {
             <RestartDesktopInstanceButton team={team} />
             <br />
             <RestartChallenge53Button team={team} />
+            <br />
+            <RestartChallenge74Button team={team} />
           </>
         );
       },

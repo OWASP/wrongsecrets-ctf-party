@@ -18,6 +18,8 @@ const {
   getJuiceShopInstanceForTeamname,
   updateLastRequestTimestampForTeam,
   deleteNamespaceForTeam,
+  deletePodForTeam,
+  deleteChallenge74SecretForTeam,
 } = require('../kubernetes');
 
 afterAll(async () => {
@@ -391,5 +393,47 @@ describe('connectionCache eviction and bounded lifecycle', () => {
       .expect(200);
 
     expect(connectionCache.has('team-to-delete')).toBe(false);
+  });
+
+  test('admin challenge 74 restart evicts team from connection cache', async () => {
+    connectionCache.set('team-c74', Date.now());
+    deletePodForTeam.mockResolvedValue();
+
+    await request(app)
+      .post('/balancer/admin/teams/team-c74/restartchallenge74')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74')).toBe(false);
+    expect(deletePodForTeam).toHaveBeenCalledWith('team-c74');
+  });
+
+  test('admin challenge 74 container restart endpoint evicts team from connection cache', async () => {
+    connectionCache.set('team-c74-c', Date.now());
+    deletePodForTeam.mockResolvedValue();
+
+    await request(app)
+      .post('/balancer/admin/teams/team-c74-c/restartchallenge74container')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74-c')).toBe(false);
+    expect(deletePodForTeam).toHaveBeenCalledWith('team-c74-c');
+  });
+
+  test('admin challenge 74 secret deletion evicts team from connection cache', async () => {
+    connectionCache.set('team-c74-secret', Date.now());
+    deleteChallenge74SecretForTeam.mockResolvedValue();
+
+    await request(app)
+      .delete('/balancer/admin/teams/team-c74-secret/deletechallenge74')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74-secret')).toBe(false);
+    expect(deleteChallenge74SecretForTeam).toHaveBeenCalledWith('team-c74-secret');
   });
 });

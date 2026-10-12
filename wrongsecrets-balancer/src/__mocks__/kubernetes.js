@@ -23,6 +23,8 @@ module.exports = {
   deletePodForTeam: jest.fn(),
   deleteNamespaceForTeam: jest.fn(),
   deleteDesktopPodForTeam: jest.fn(),
+  deleteChallenge53DeploymentForTeam: jest.fn(),
+  deleteChallenge74SecretForTeam: jest.fn(),
   updateLastRequestTimestampForTeam: jest.fn(),
   changePasscodeHashForTeam: jest.fn(),
 };
