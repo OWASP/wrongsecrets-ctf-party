@@ -66,13 +66,6 @@ app.get('/balancer/admin', (req, res) => {
   res.sendFile(indexFile);
 });
 app.use('/balancer/admin', adminRoutes);
-app.get('/balancer/score-board', (req, res) => {
-  const indexFile = path.join(
-    __dirname,
-    process.env['NODE_ENV'] === 'test' ? '../ui/build/index.html' : '../public/index.html'
-  );
-  res.sendFile(indexFile);
-});
 app.use('/balancer/score-board', scoreBoardRoutes);
 
 app.use(proxyRoutes);
