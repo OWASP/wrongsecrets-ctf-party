@@ -11,7 +11,7 @@ sleep 5
 
 echo "let's go!"
 
-wait 10
+sleep 10
 
 wait_for_endpoints() {
   local service="$1"
@@ -31,13 +31,14 @@ wait_for_endpoints() {
 
 echo "Waiting for balancer, Prometheus, and Grafana endpoints..."
 wait_for_endpoints wrongsecrets-balancer
-kubectl port-forward service/wrongsecrets-balancer 3000:3000 &
-
-echo "Balancer is running on http://localhost:3000"
-
-wait_for_endpoints wrongsecrets-prometheus
+wait_for_endpoints wrongsecrets-kube-promethe-prometheus
 wait_for_endpoints wrongsecrets-grafana
 
-kubectl port-forward svc/wrongsecrets-grafana 8080:80 &
+kubectl port-forward service/wrongsecrets-balancer 3000:3000 &
+echo "Balancer is running on http://localhost:3000"
 
-echo "Grafana is running on http://localhost:8080"
+kubectl port-forward svc/wrongsecrets-kube-promethe-prometheus 9090:9090 &
+echo "Prometheus is running on http://localhost:9090"
+
+kubectl port-forward svc/wrongsecrets-grafana 8080:80 &
+echo "Grafana is running on http://localhost:8080 (admin / prom-operator)"

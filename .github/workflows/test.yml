@@ -17,7 +17,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             cleaner/package-lock.json
-      - name: Install Balancer
+      - name: Install Cleaner
         run: |
           cd cleaner
           npm ci
@@ -25,7 +25,7 @@ jobs:
         run: |
           cd cleaner
           npm run lint
-      - name: Test Balancer
+      - name: Test Cleaner
         run: |
           cd cleaner
           npm test -- --ci --color --verbose
@@ -46,6 +46,10 @@ jobs:
           cd wrongsecrets-balancer/ui
           npm ci --legacy-peer-deps
           npm run build
+      - name: Test BalancerUI
+        run: |
+          cd wrongsecrets-balancer/ui
+          CI=true npm test
       - name: Install Balancer
         run: |
           cd wrongsecrets-balancer

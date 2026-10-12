@@ -431,3 +431,79 @@ test('should fall back to creationTimestamp if lastRequest annotation is missing
   });
   expect(await app.listOldNamespaces()).toEqual([]);
 });
+
+test('should mark namespace for deletion when wrongsecrets, virtualdesktop, and challenge-53 deployments are all inactive', async () => {
+  getNamespaces.mockImplementation(() => ({
+    body: {
+      items: [{ metadata: { name: 't-team-challenge53' } }],
+    },
+  }));
+  const teamDeployments = [
+    {
+      metadata: {
+        name: 't-team-challenge53-wrongsecrets',
+        labels: { team: 'team-challenge53', app: 'wrongsecrets' },
+        annotations: { 'wrongsecrets-ctf-party/lastRequest': 0 },
+      },
+    },
+    {
+      metadata: {
+        name: 't-team-challenge53-virtualdesktop',
+        labels: { team: 'team-challenge53', app: 'virtualdesktop' },
+        annotations: { 'wrongsecrets-ctf-party/lastRequest': 0 },
+      },
+    },
+    {
+      metadata: {
+        name: 't-team-challenge53-secret-challenge-53',
+        labels: { team: 'team-challenge53', app: 'secret-challenge-53' },
+        annotations: { 'wrongsecrets-ctf-party/lastRequest': 0 },
+      },
+    },
+  ];
+  getTeamJuiceShopInstances.mockImplementation(() => ({
+    body: { items: teamDeployments },
+  }));
+  getTeamInstances.mockImplementation(() => ({
+    body: { items: teamDeployments },
+  }));
+  expect(await app.listOldNamespaces()).toEqual(['t-team-challenge53']);
+});
+
+test('should not delete namespace when wrongsecrets deployment is active even if challenge-53 is inactive', async () => {
+  getNamespaces.mockImplementation(() => ({
+    body: {
+      items: [{ metadata: { name: 't-team-active' } }],
+    },
+  }));
+  const teamDeployments = [
+    {
+      metadata: {
+        name: 't-team-active-wrongsecrets',
+        labels: { team: 'team-active', app: 'wrongsecrets' },
+        annotations: { 'wrongsecrets-ctf-party/lastRequest': new Date().getTime() },
+      },
+    },
+    {
+      metadata: {
+        name: 't-team-active-virtualdesktop',
+        labels: { team: 'team-active', app: 'virtualdesktop' },
+        annotations: { 'wrongsecrets-ctf-party/lastRequest': 0 },
+      },
+    },
+    {
+      metadata: {
+        name: 't-team-active-secret-challenge-53',
+        labels: { team: 'team-active', app: 'secret-challenge-53' },
+        annotations: { 'wrongsecrets-ctf-party/lastRequest': 0 },
+      },
+    },
+  ];
+  getTeamJuiceShopInstances.mockImplementation(() => ({
+    body: { items: teamDeployments },
+  }));
+  getTeamInstances.mockImplementation(() => ({
+    body: { items: teamDeployments },
+  }));
+  expect(await app.listOldNamespaces()).toEqual([]);
+});
