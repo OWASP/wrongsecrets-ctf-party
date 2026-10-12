@@ -8,7 +8,8 @@ sleep 2
 echo "Sleeping for 10 seconds to give you time to abort if you are not sure to use automatic deletion"
 sleep 10
 
-source check-available-commands.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+source "${SCRIPT_DIR}/check-available-commands.sh"
 checkCommandsAvailable kubectl jq awk
 IFS=$'
 '

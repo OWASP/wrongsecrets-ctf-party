@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
@@ -50,15 +50,67 @@ export const JoinPage = () => {
 
   const { formatMessage } = useIntl();
 
+  const initialDynamics = {
+    // type all the fields you need
+    react_gif_logo: 'https://i.gifer.com/9kGQ.gif',
+    k8s_env: process.env['K8S_ENV'],
+    heroku_wrongsecret_ctf_url: process.env['REACT_APP_HEROKU_WRONGSECRETS_URL'],
+    ctfd_url: process.env['REACT_APP_CTFD_URL'],
+    s3_bucket_url: process.env['REACT_APP_S3_BUCKET_URL'],
+    azure_blob_url: process.env['REACT_APP_AZ_BLOB_URL'],
+    gcp_bucket_url: process.env['REACT_APP_GCP_BUCKET_URL'],
+    hmac_key: process.env['REACT_APP_CREATE_TEAM_HMAC_KEY'],
+    enable_password: false,
+  };
+
+  const [dynamics, setDynamics] = useState(initialDynamics);
+  const dynamicsPromiseRef = useRef(null);
+
+  useEffect(() => {
+    dynamicsPromiseRef.current = axios
+      .get('/balancer/dynamics')
+      .then((response) => {
+        setDynamics(response.data);
+        return response.data;
+      })
+      .catch((err) => {
+        console.error(`Failed to wait parse values: ${err}`);
+      });
+  }, []);
+
   async function sendJoinRequest() {
     try {
       if (!teamname || teamname.length === 0) {
         setFailed(true);
         return;
       }
-      if (dynamics.enable_password) {
+
+      let currentDynamics = dynamics;
+      if (!currentDynamics?.hmac_key && dynamicsPromiseRef.current) {
+        const loadedDynamics = await dynamicsPromiseRef.current;
+        if (loadedDynamics) {
+          currentDynamics = loadedDynamics;
+        }
+      }
+      if (!currentDynamics?.hmac_key) {
+        try {
+          const response = await axios.get('/balancer/dynamics');
+          if (response?.data) {
+            currentDynamics = response.data;
+            setDynamics(response.data);
+          }
+        } catch (fetchErr) {
+          console.error(`Failed to fetch dynamics before join: ${fetchErr}`);
+        }
+      }
+      if (!currentDynamics?.hmac_key) {
+        setFailed(true);
+        return;
+      }
+
+      if (currentDynamics.enable_password) {
         const hmacvalue = cryptoJS
-          .HmacSHA256(`${teamname}`, dynamics.hmac_key)
+          .HmacSHA256(`${teamname}`, currentDynamics.hmac_key)
           .toString(cryptoJS.enc.Hex);
         const { data } = await axios.post(`/balancer/teams/${teamname}/join`, {
           passcode,
@@ -68,7 +120,7 @@ export const JoinPage = () => {
         navigate(`/teams/${teamname}/joined/`, { state: { passcode: data.passcode } });
       } else {
         const hmacvalue = cryptoJS
-          .HmacSHA256(`${teamname}`, dynamics.hmac_key)
+          .HmacSHA256(`${teamname}`, currentDynamics.hmac_key)
           .toString(cryptoJS.enc.Hex);
         const { data } = await axios.post(`/balancer/teams/${teamname}/join`, {
           passcode,
@@ -92,31 +144,6 @@ export const JoinPage = () => {
     event.preventDefault();
     sendJoinRequest({ teamname });
   }
-
-  const initialDynamics = {
-    // type all the fields you need
-    react_gif_logo: 'https://i.gifer.com/9kGQ.gif',
-    k8s_env: process.env['K8S_ENV'],
-    heroku_wrongsecret_ctf_url: process.env['REACT_APP_HEROKU_WRONGSECRETS_URL'],
-    ctfd_url: process.env['REACT_APP_CTFD_URL'],
-    s3_bucket_url: process.env['REACT_APP_S3_BUCKET_URL'],
-    azure_blob_url: process.env['REACT_APP_AZ_BLOB_URL'],
-    gcp_bucket_url: process.env['REACT_APP_GCP_BUCKET_URL'],
-    hmac_key: process.env['REACT_APP_CREATE_TEAM_HMAC_KEY'],
-    enable_password: false,
-  };
-
-  const [dynamics, setDynamics] = useState(initialDynamics);
-  useEffect(() => {
-    axios
-      .get('/balancer/dynamics')
-      .then((response) => {
-        setDynamics(response.data);
-      })
-      .catch((err) => {
-        console.error(`Failed to wait parse values: ${err}`);
-      });
-  }, []);
 
   return (
     <>

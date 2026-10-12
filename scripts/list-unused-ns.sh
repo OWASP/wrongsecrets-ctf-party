@@ -3,8 +3,9 @@
 echo "This script shows all the namespaces that have not been used, it requires an export of the users in CTFD"
 echo "It assumes you have the users.csv file and teams.csv file from CTFD in the same folder"
 echo "This script results in a file unusedteams.txt with all the teams that have no exact match with the registration of users and teams in CTFD"
-rm unusedteams.txt
-source check-available-commands.sh
+rm -f unusedteams.txt
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+source "${SCRIPT_DIR}/check-available-commands.sh"
 checkCommandsAvailable kubectl jq awk
 IFS=$'
 '
