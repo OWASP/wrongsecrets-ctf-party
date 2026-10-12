@@ -8,8 +8,10 @@ jest.mock('../logger', () => ({
   },
 }));
 
+const request = require('supertest');
 const { getJuiceShopInstances } = require('../kubernetes');
 const { getTopTeams } = require('./score-board');
+const app = require('../app');
 
 describe('score-board getTopTeams', () => {
   let req;
@@ -153,5 +155,73 @@ describe('score-board getTopTeams', () => {
     expect(res.json).toHaveBeenCalledWith({
       message: 'Failed to retrieve scoreboard data',
     });
+  });
+
+  test('filters by app: wrongsecrets and deduplicates multiple deployments for the same team', async () => {
+    getJuiceShopInstances.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            name: 'wrongsecrets-desktop',
+            labels: { team: 'team-omega', app: 'virtualdesktop' },
+            annotations: {},
+          },
+        },
+        {
+          metadata: {
+            name: 't-team-omega-wrongsecrets',
+            labels: { team: 'team-omega', app: 'wrongsecrets' },
+            annotations: {
+              'wrongsecrets-ctf-party/challenges': JSON.stringify([{ key: 'challenge0' }]),
+            },
+          },
+        },
+      ],
+    });
+
+    await getTopTeams(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const response = res.send.mock.calls[0][0];
+    expect(response.totalTeams).toBe(1);
+    expect(response.teams).toHaveLength(1);
+    expect(response.teams[0].name).toBe('team-omega');
+    expect(response.teams[0].score).toBe(10);
+  });
+
+  test('GET /balancer/score-board/top returns scoreboard payload through Express router', async () => {
+    getJuiceShopInstances.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            name: 't-team-routed-wrongsecrets',
+            labels: { team: 'team-routed', app: 'wrongsecrets' },
+            annotations: {
+              'wrongsecrets-ctf-party/challenges': JSON.stringify([{ key: 'challenge1' }]),
+            },
+          },
+        },
+      ],
+    });
+
+    const response = await request(app)
+      .get('/balancer/score-board/top')
+      .expect(200)
+      .expect('Content-Type', /json/);
+
+    expect(response.body.totalTeams).toBe(1);
+    expect(response.body.teams[0].name).toBe('team-routed');
+    expect(response.body.teams[0].score).toBe(10);
+  });
+
+  test('GET /balancer/score-board/ serves the scoreboard UI html', async () => {
+    await request(app)
+      .get('/balancer/score-board/')
+      .expect(200)
+      .expect('Content-Type', /text\/html/);
+  });
+
+  test('GET /balancer/score-board redirects to trailing slash for scoreboard UI', async () => {
+    await request(app).get('/balancer/score-board').expect(301);
   });
 });

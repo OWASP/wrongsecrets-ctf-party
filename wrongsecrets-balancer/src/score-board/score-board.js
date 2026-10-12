@@ -49,7 +49,12 @@ async function getTopTeams(req, res) {
 
     const items = instances?.items || instances?.body?.items || [];
 
-    const teams = items.map((team) => {
+    const wrongsecretsDeployments = items.filter(
+      (item) => item.metadata?.labels?.app === 'wrongsecrets'
+    );
+    const targetDeployments = wrongsecretsDeployments.length > 0 ? wrongsecretsDeployments : items;
+
+    const rawTeams = targetDeployments.map((team) => {
       let challengeProgress;
       try {
         const rawProgress =
@@ -88,11 +93,18 @@ async function getTopTeams(req, res) {
       };
     });
 
+    const teamMap = new Map();
+    for (const team of rawTeams) {
+      if (!teamMap.has(team.name) || team.score > teamMap.get(team.name).score) {
+        teamMap.set(team.name, team);
+      }
+    }
+    const teams = Array.from(teamMap.values());
     teams.sort((a, b) => b.score - a.score);
     // Get the top 25 teams
     const topTeams = teams.slice(0, 25);
 
-    return res.status(200).send({ totalTeams: items.length, teams: topTeams });
+    return res.status(200).send({ totalTeams: teams.length, teams: topTeams });
   } catch (error) {
     logger.error('Failed to get scoreboard data:', error);
     return res.status(500).json({ message: 'Failed to retrieve scoreboard data' });
