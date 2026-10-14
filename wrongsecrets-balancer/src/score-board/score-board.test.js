@@ -10,7 +10,7 @@ jest.mock('../logger', () => ({
 
 const request = require('supertest');
 const { getJuiceShopInstances } = require('../kubernetes');
-const { getTopTeams } = require('./score-board');
+const { getTopTeams, invalidateScoreboardCache } = require('./score-board');
 const app = require('../app');
 
 describe('score-board getTopTeams', () => {
@@ -18,6 +18,7 @@ describe('score-board getTopTeams', () => {
   let res;
 
   beforeEach(() => {
+    invalidateScoreboardCache();
     req = {};
     res = {
       status: jest.fn().mockReturnThis(),
@@ -212,6 +213,56 @@ describe('score-board getTopTeams', () => {
     expect(response.body.totalTeams).toBe(1);
     expect(response.body.teams[0].name).toBe('team-routed');
     expect(response.body.teams[0].score).toBe(10);
+  });
+
+  test('uses difficulty stored directly on solved challenge progress object', async () => {
+    getJuiceShopInstances.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            labels: { team: 'team-explicit-diff' },
+            annotations: {
+              'wrongsecrets-ctf-party/challenges': JSON.stringify([
+                { key: 'challenge74', difficulty: 5 }, // explicit difficulty from body -> 50 pts
+              ]),
+            },
+          },
+        },
+      ],
+    });
+
+    await getTopTeams(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const response = res.send.mock.calls[0][0];
+    expect(response.teams[0].score).toBe(50);
+  });
+
+  test('caches scoreboard response within TTL and clears on invalidateScoreboardCache', async () => {
+    getJuiceShopInstances.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            labels: { team: 'team-cached' },
+            annotations: {
+              'wrongsecrets-ctf-party/challenges': JSON.stringify([{ key: 'challenge0' }]),
+            },
+          },
+        },
+      ],
+    });
+
+    await getTopTeams(req, res);
+    expect(getJuiceShopInstances).toHaveBeenCalledTimes(1);
+
+    // Second call within TTL should return cached payload without querying k8s again
+    await getTopTeams(req, res);
+    expect(getJuiceShopInstances).toHaveBeenCalledTimes(1);
+
+    // Invalidation clears the cache
+    invalidateScoreboardCache();
+    await getTopTeams(req, res);
+    expect(getJuiceShopInstances).toHaveBeenCalledTimes(2);
   });
 
   test('GET /balancer/score-board/ serves the scoreboard UI html', async () => {

@@ -5,7 +5,7 @@ const router = express.Router();
 const { getJuiceShopInstances } = require('../kubernetes');
 const { logger } = require('../logger');
 
-// Generated via curl https://wrongsecrets-ctf.herokuapp.com/api/challenges | jq '.data | map({ key: .key, value: .difficulty }) | from_entries'
+// Generated via curl https://wrongsecrets-ctf.herokuapp.com/api/challenges | jq '.data | map({ key: (.key | sub("-"; "")), value: .difficulty }) | from_entries'
 const keyDifficultyMapping = Object.freeze({
   challenge0: 1,
   challenge1: 1,
@@ -35,7 +35,50 @@ const keyDifficultyMapping = Object.freeze({
   challenge25: 2,
   challenge26: 2,
   challenge27: 2,
+  challenge28: 1,
+  challenge29: 1,
+  challenge30: 2,
+  challenge31: 1,
+  challenge32: 2,
+  challenge33: 2,
+  challenge34: 2,
+  challenge35: 1,
+  challenge36: 5,
+  challenge37: 2,
+  challenge38: 1,
+  challenge39: 1,
+  challenge40: 1,
+  challenge41: 3,
+  challenge42: 2,
+  challenge43: 1,
+  challenge44: 4,
+  challenge45: 4,
+  challenge46: 4,
+  challenge47: 2,
+  challenge48: 2,
+  challenge49: 3,
+  challenge50: 2,
+  challenge51: 2,
+  challenge52: 2,
+  challenge53: 3,
+  challenge54: 2,
+  challenge55: 1,
+  challenge56: 1,
+  challenge57: 2,
+  challenge58: 2,
+  challenge59: 2,
+  challenge60: 2,
+  challenge61: 2,
 });
+
+let cachedScoreboardResponse = null;
+let lastScoreboardFetchTime = 0;
+const SCOREBOARD_CACHE_TTL_MS = 3000;
+
+function invalidateScoreboardCache() {
+  cachedScoreboardResponse = null;
+  lastScoreboardFetchTime = 0;
+}
 
 /**
  * @param {import("express").Request} req
@@ -43,6 +86,11 @@ const keyDifficultyMapping = Object.freeze({
  */
 async function getTopTeams(req, res) {
   try {
+    const now = Date.now();
+    if (cachedScoreboardResponse && now - lastScoreboardFetchTime < SCOREBOARD_CACHE_TTL_MS) {
+      return res.status(200).send(cachedScoreboardResponse);
+    }
+
     const instances = await getJuiceShopInstances();
 
     logger.debug('Listing teams');
@@ -66,7 +114,10 @@ async function getTopTeams(req, res) {
       }
 
       const scoredChallenges = challengeProgress.map((progress) => {
-        let difficulty = keyDifficultyMapping[progress.key];
+        let difficulty =
+          typeof progress.difficulty === 'number' && !Number.isNaN(progress.difficulty)
+            ? progress.difficulty
+            : keyDifficultyMapping[progress.key];
 
         if (difficulty === undefined) {
           logger.warn(
@@ -104,7 +155,11 @@ async function getTopTeams(req, res) {
     // Get the top 25 teams
     const topTeams = teams.slice(0, 25);
 
-    return res.status(200).send({ totalTeams: teams.length, teams: topTeams });
+    const payload = { totalTeams: teams.length, teams: topTeams };
+    cachedScoreboardResponse = payload;
+    lastScoreboardFetchTime = now;
+
+    return res.status(200).send(payload);
   } catch (error) {
     logger.error('Failed to get scoreboard data:', error);
     return res.status(500).json({ message: 'Failed to retrieve scoreboard data' });
@@ -116,3 +171,4 @@ router.get('/top', getTopTeams);
 module.exports = router;
 module.exports.getTopTeams = getTopTeams;
 module.exports.keyDifficultyMapping = keyDifficultyMapping;
+module.exports.invalidateScoreboardCache = invalidateScoreboardCache;

@@ -23,13 +23,47 @@ jest.mock('@kubernetes/client-node', () => {
     CustomObjectsApi: jest.fn(),
     RbacAuthorizationV1Api: jest.fn(),
     NetworkingV1Api: jest.fn(),
-    PatchUtils: {
-      PATCH_FORMAT_JSON_MERGE_PATCH: 'application/merge-patch+json',
-    },
   };
 });
 
-const { changePasscodeHashForTeam } = require('./kubernetes');
+const {
+  changePasscodeHashForTeam,
+  recordSolvedChallengeForTeam,
+  clearSolvedChallengesCache,
+  updateLastRequestTimestampForTeam,
+} = require('./kubernetes');
+
+describe('updateLastRequestTimestampForTeam', () => {
+  test('patches timestamps using the merge-patch content type', async () => {
+    const { patchNamespacedDeployment } =
+      new (require('@kubernetes/client-node').KubeConfig)().makeApiClient();
+
+    await updateLastRequestTimestampForTeam('test-team');
+
+    expect(patchNamespacedDeployment).toHaveBeenCalledTimes(1);
+    const [request, options] = patchNamespacedDeployment.mock.calls[0];
+    expect(request).toEqual(
+      expect.objectContaining({
+        name: 't-test-team-wrongsecrets',
+        namespace: 't-test-team',
+        body: {
+          metadata: {
+            annotations: expect.objectContaining({
+              'wrongsecrets-ctf-party/lastRequest': expect.any(String),
+              'wrongsecrets-ctf-party/lastRequestReadable': expect.any(String),
+            }),
+          },
+        },
+      })
+    );
+    const mockContext = { setHeaderParam: jest.fn() };
+    await options.middleware[0].pre(mockContext).toPromise();
+    expect(mockContext.setHeaderParam).toHaveBeenCalledWith(
+      'Content-Type',
+      'application/merge-patch+json'
+    );
+  });
+});
 
 describe('changePasscodeHashForTeam E2E Header Regression', () => {
   test('correctly configures middleware to enforce application/merge-patch+json content-type', async () => {
@@ -52,6 +86,106 @@ describe('changePasscodeHashForTeam E2E Header Regression', () => {
     expect(mockContext.setHeaderParam).toHaveBeenCalledWith(
       'Content-Type',
       'application/merge-patch+json'
+    );
+  });
+});
+
+describe('recordSolvedChallengeForTeam', () => {
+  const deployment = (resourceVersion, annotations = {}) => ({
+    metadata: { resourceVersion, annotations },
+  });
+
+  beforeEach(() => {
+    clearSolvedChallengesCache();
+    const { readNamespacedDeployment, patchNamespacedDeployment } =
+      new (require('@kubernetes/client-node').KubeConfig)().makeApiClient();
+    readNamespacedDeployment.mockReset();
+    patchNamespacedDeployment.mockReset().mockResolvedValue({});
+  });
+
+  test('adds a challenge and updates the solved count through a resource-version-guarded patch', async () => {
+    const { readNamespacedDeployment, patchNamespacedDeployment } =
+      new (require('@kubernetes/client-node').KubeConfig)().makeApiClient();
+    readNamespacedDeployment.mockResolvedValueOnce(deployment('12', { other: 'preserved' }));
+
+    await expect(recordSolvedChallengeForTeam('team-one', 'challenge7', 4)).resolves.toEqual({
+      updated: true,
+    });
+
+    expect(readNamespacedDeployment).toHaveBeenCalledWith({
+      name: 't-team-one-wrongsecrets',
+      namespace: 't-team-one',
+    });
+    const [patchRequest, options] = patchNamespacedDeployment.mock.calls[0];
+    expect(patchRequest.body).toEqual([
+      { op: 'test', path: '/metadata/resourceVersion', value: '12' },
+      {
+        op: 'add',
+        path: '/metadata/annotations/wrongsecrets-ctf-party~1challenges',
+        value: JSON.stringify([{ key: 'challenge7', difficulty: 4 }]),
+      },
+      {
+        op: 'add',
+        path: '/metadata/annotations/wrongsecrets-ctf-party~1challengesSolved',
+        value: '1',
+      },
+    ]);
+    const mockContext = { setHeaderParam: jest.fn() };
+    await options.middleware[0].pre(mockContext).toPromise();
+    expect(mockContext.setHeaderParam).toHaveBeenCalledWith(
+      'Content-Type',
+      'application/json-patch+json'
+    );
+  });
+
+  test('does not award the same challenge twice', async () => {
+    const { readNamespacedDeployment, patchNamespacedDeployment } =
+      new (require('@kubernetes/client-node').KubeConfig)().makeApiClient();
+    readNamespacedDeployment.mockResolvedValueOnce(
+      deployment('13', { 'wrongsecrets-ctf-party/challenges': '[{"key":"challenge7"}]' })
+    );
+
+    await expect(recordSolvedChallengeForTeam('team-one', 'challenge7')).resolves.toEqual({
+      updated: false,
+    });
+    expect(patchNamespacedDeployment).not.toHaveBeenCalled();
+  });
+
+  test('uses in-memory cache to return early without querying k8s for already solved challenges', async () => {
+    const { readNamespacedDeployment, patchNamespacedDeployment } =
+      new (require('@kubernetes/client-node').KubeConfig)().makeApiClient();
+    readNamespacedDeployment.mockResolvedValueOnce(deployment('12', { other: 'preserved' }));
+
+    await expect(recordSolvedChallengeForTeam('team-one', 'challenge7', 4)).resolves.toEqual({
+      updated: true,
+    });
+    expect(readNamespacedDeployment).toHaveBeenCalledTimes(1);
+
+    // Second call should hit in-memory cache and not query Kubernetes again
+    await expect(recordSolvedChallengeForTeam('team-one', 'challenge7', 4)).resolves.toEqual({
+      updated: false,
+    });
+    expect(readNamespacedDeployment).toHaveBeenCalledTimes(1);
+    expect(patchNamespacedDeployment).toHaveBeenCalledTimes(1);
+  });
+
+  test('re-reads and retries a patch after a resource-version conflict', async () => {
+    const { readNamespacedDeployment, patchNamespacedDeployment } =
+      new (require('@kubernetes/client-node').KubeConfig)().makeApiClient();
+    readNamespacedDeployment
+      .mockResolvedValueOnce(deployment('14'))
+      .mockResolvedValueOnce(
+        deployment('15', { 'wrongsecrets-ctf-party/challenges': '[{"key":"challenge2"}]' })
+      );
+    patchNamespacedDeployment.mockRejectedValueOnce({ statusCode: 409 });
+
+    await expect(recordSolvedChallengeForTeam('team-one', 'challenge7')).resolves.toEqual({
+      updated: true,
+    });
+    expect(readNamespacedDeployment).toHaveBeenCalledTimes(2);
+    expect(patchNamespacedDeployment).toHaveBeenCalledTimes(2);
+    expect(patchNamespacedDeployment.mock.calls[1][0].body[1].value).toBe(
+      JSON.stringify([{ key: 'challenge2' }, { key: 'challenge7', difficulty: 1 }])
     );
   });
 });

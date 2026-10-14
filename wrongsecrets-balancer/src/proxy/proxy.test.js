@@ -1,6 +1,7 @@
 jest.mock('../kubernetes');
 jest.mock('http-proxy');
 
+const { EventEmitter } = require('node:events');
 const { advanceBy, advanceTo, clear } = require('jest-date-mock');
 const request = require('supertest');
 const { __mockProxy } = require('http-proxy');
@@ -17,6 +18,7 @@ const {
 const {
   getJuiceShopInstanceForTeamname,
   updateLastRequestTimestampForTeam,
+  recordSolvedChallengeForTeam,
   deleteNamespaceForTeam,
   deletePodForTeam,
   deleteChallenge74SecretForTeam,
@@ -30,6 +32,7 @@ beforeEach(() => {
   clear();
   getJuiceShopInstanceForTeamname.mockClear();
   updateLastRequestTimestampForTeam.mockClear();
+  recordSolvedChallengeForTeam.mockClear();
   __mockProxy.web.mockClear();
   __mockProxy.ws.mockClear();
 });
@@ -49,6 +52,91 @@ test('should proxy requests going to JuiceShop when they got a team cookie', asy
     .send()
     .expect(200)
     .expect('proxied');
+});
+
+test('records a challenge when its submission response contains the correct-answer marker', async () => {
+  await request(app)
+    .post('/challenge/challenge-7?action=submit')
+    .set('Cookie', ['balancer=t-team-score-test'])
+    .type('form')
+    .send({ solution: 'answer' })
+    .expect(200)
+    .expect('proxied');
+
+  const proxiedReq = __mockProxy.web.mock.calls[0][0];
+  const upstreamRequest = {
+    setHeader: jest.fn(),
+    getHeader: jest.fn().mockReturnValue('application/x-www-form-urlencoded'),
+    write: jest.fn(),
+  };
+  __mockProxy.emit('proxyReq', upstreamRequest, proxiedReq);
+  expect(upstreamRequest.setHeader).toHaveBeenCalledWith('accept-encoding', 'identity');
+
+  const proxyResponse = new EventEmitter();
+  proxyResponse.statusCode = 200;
+  proxyResponse.headers = {};
+  __mockProxy.emit('proxyRes', proxyResponse, proxiedReq);
+  proxyResponse.emit('data', Buffer.from('<div>Your answer is cor'));
+  proxyResponse.emit('data', Buffer.from('rect!</div>'));
+
+  expect(recordSolvedChallengeForTeam).toHaveBeenCalledWith('team-score-test', 'challenge7', 4);
+});
+
+test('extracts challenge difficulty stars from response body and passes to recordSolvedChallengeForTeam', async () => {
+  await request(app)
+    .post('/challenge/challenge-18?action=submit')
+    .set('Cookie', ['balancer=t-team-stars-test'])
+    .type('form')
+    .send({ solution: 'secret-answer' })
+    .expect(200);
+
+  const proxiedReq = __mockProxy.web.mock.calls[0][0];
+  const proxyResponse = new EventEmitter();
+  proxyResponse.statusCode = 200;
+  proxyResponse.headers = {};
+  __mockProxy.emit('proxyRes', proxyResponse, proxiedReq);
+  proxyResponse.emit(
+    'data',
+    Buffer.from(
+      '<p class="h1"><span data-cy="challenge-title">Challenge 18</span> <span>☆☆☆☆☆</span></p>'
+    )
+  );
+  proxyResponse.emit('data', Buffer.from('<div>Your answer is correct!</div>'));
+
+  expect(recordSolvedChallengeForTeam).toHaveBeenCalledWith('team-stars-test', 'challenge18', 5);
+});
+
+test('extractDifficultyFromBody extracts star counts and JSON correctly', () => {
+  const { extractDifficultyFromBody } = require('./proxy');
+  expect(extractDifficultyFromBody('<span>☆☆☆☆</span>', 'challenge7')).toBe(4);
+  expect(
+    extractDifficultyFromBody(
+      '<span data-cy="challenge-title">Challenge 0</span> <span>☆</span>',
+      'challenge0'
+    )
+  ).toBe(1);
+  expect(extractDifficultyFromBody('<p class="h1"><span>★★★</span></p>', 'challenge3')).toBe(3);
+  expect(extractDifficultyFromBody('{"difficulty": 5}', 'challenge18')).toBe(5);
+  expect(extractDifficultyFromBody('<div>no stars</div>', 'challenge7')).toBe(4);
+  expect(extractDifficultyFromBody('<div>no stars</div>', 'unknown')).toBe(1);
+});
+
+test('does not record a challenge for an incorrect submission response', async () => {
+  await request(app)
+    .post('/challenge/challenge-7?action=submit')
+    .set('Cookie', ['balancer=t-team-score-incorrect'])
+    .type('form')
+    .send({ solution: 'wrong' })
+    .expect(200);
+
+  const proxiedReq = __mockProxy.web.mock.calls[0][0];
+  const proxyResponse = new EventEmitter();
+  proxyResponse.statusCode = 200;
+  proxyResponse.headers = {};
+  __mockProxy.emit('proxyRes', proxyResponse, proxiedReq);
+  proxyResponse.emit('data', Buffer.from('Your answer is incorrect, try harder ;-)'));
+
+  expect(recordSolvedChallengeForTeam).not.toHaveBeenCalled();
 });
 
 test("should redirect to /balancer/ when requests don't have a team cookie", async () => {

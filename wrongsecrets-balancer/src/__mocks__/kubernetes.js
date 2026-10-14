@@ -26,5 +26,7 @@ module.exports = {
   deleteChallenge53DeploymentForTeam: jest.fn(),
   deleteChallenge74SecretForTeam: jest.fn(),
   updateLastRequestTimestampForTeam: jest.fn(),
+  recordSolvedChallengeForTeam: jest.fn().mockResolvedValue({ updated: true }),
+  clearSolvedChallengesCache: jest.fn(),
   changePasscodeHashForTeam: jest.fn(),
 };
