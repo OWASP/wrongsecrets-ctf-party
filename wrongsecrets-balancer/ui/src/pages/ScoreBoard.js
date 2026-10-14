@@ -177,19 +177,27 @@ const Undertitle = styled.p`
 export const ScoreBoard = () => {
   const [teams, setTeams] = useState([]);
   useEffect(() => {
-    fetch('/balancer/score-board/top')
-      .then((response) => response.json())
-      .then(({ teams }) => {
-        setTeams(teams);
-      });
-
-    const timer = setInterval(() => {
+    const fetchTopTeams = () => {
       fetch('/balancer/score-board/top')
-        .then((response) => response.json())
-        .then(({ teams }) => {
-          setTeams(teams);
+        .then((response) => {
+          if ('ok' in response && !response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          if (data && Array.isArray(data.teams)) {
+            setTeams(data.teams);
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to fetch scoreboard data:', error);
         });
-    }, 5000);
+    };
+
+    fetchTopTeams();
+
+    const timer = setInterval(fetchTopTeams, 5000);
 
     return () => {
       clearInterval(timer);
@@ -199,8 +207,6 @@ export const ScoreBoard = () => {
   return (
     <>
       <NoPaddingBodyCard>
-        Please note that the scoreboard is currently not functioning. It does tell you which other
-        players play, but it is not yet ready to be used.
         <Table>
           <Thead>
             <Tr>

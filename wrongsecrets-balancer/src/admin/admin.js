@@ -12,6 +12,7 @@ const {
   deleteDesktopPodForTeam,
   deleteChallenge53DeploymentForTeam,
   deleteChallenge74SecretForTeam,
+  clearSolvedChallengesCache,
 } = require('../kubernetes');
 const { evictConnectionCache } = require('../proxy/proxy');
 
@@ -99,6 +100,7 @@ async function restartInstance(req, res) {
     logger.info(`Restarting deployment for team: '${teamname}'`);
 
     evictConnectionCache(teamname);
+    clearSolvedChallengesCache(teamname);
     await deletePodForTeam(teamname);
 
     res.send();
@@ -114,6 +116,7 @@ async function restartDesktopInstance(req, res) {
     logger.info(`Restarting Dektopdeployment for team: '${teamname}'`);
 
     evictConnectionCache(teamname);
+    clearSolvedChallengesCache(teamname);
     await deleteDesktopPodForTeam(teamname);
 
     res.send();
@@ -128,6 +131,7 @@ async function restartChallenge53Deployment(req, res) {
     const teamname = req.params.team;
     logger.info(`Restarting challenge53 for team: '${teamname}'`);
     evictConnectionCache(teamname);
+    clearSolvedChallengesCache(teamname);
     await deleteChallenge53DeploymentForTeam(teamname);
     res.send();
   } catch (error) {
@@ -142,6 +146,7 @@ async function restartChallenge74Container(req, res) {
     logger.info(`Restarting challenge74 container for team: '${teamname}'`);
 
     evictConnectionCache(teamname);
+    clearSolvedChallengesCache(teamname);
     await deletePodForTeam(teamname);
 
     res.send();
@@ -157,6 +162,7 @@ async function deleteChallenge74Secret(req, res) {
     logger.info(`Deleting challenge74 secret for team: '${teamname}'`);
 
     evictConnectionCache(teamname);
+    clearSolvedChallengesCache(teamname);
     await deleteChallenge74SecretForTeam(teamname);
 
     res.send();
@@ -176,6 +182,7 @@ async function deleteInstance(req, res) {
     logger.info(`Deleting deployment for team: '${teamname}'`);
 
     evictConnectionCache(teamname);
+    clearSolvedChallengesCache(teamname);
     await deleteNamespaceForTeam(teamname);
 
     res.send();
