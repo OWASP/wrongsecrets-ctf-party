@@ -7,10 +7,19 @@ const { __mockProxy } = require('http-proxy');
 
 const app = require('../app');
 const { get } = require('../config');
-const { attachUpgradeHandler } = require('./proxy');
+const {
+  attachUpgradeHandler,
+  evictConnectionCache,
+  clearConnectionCache,
+  pruneConnectionCache,
+  connectionCache,
+} = require('./proxy');
 const {
   getJuiceShopInstanceForTeamname,
   updateLastRequestTimestampForTeam,
+  deleteNamespaceForTeam,
+  deletePodForTeam,
+  deleteChallenge74SecretForTeam,
 } = require('../kubernetes');
 
 afterAll(async () => {
@@ -323,4 +332,108 @@ test('should destroy socket for unsupported websocket upgrade paths', () => {
 
   expect(socket.destroy).toHaveBeenCalledTimes(1);
   expect(__mockProxy.ws).not.toHaveBeenCalled();
+});
+
+describe('connectionCache eviction and bounded lifecycle', () => {
+  beforeEach(() => {
+    clearConnectionCache();
+  });
+
+  test('evictConnectionCache deletes specific team entry', () => {
+    connectionCache.set('team-alpha', Date.now());
+    connectionCache.set('team-beta', Date.now());
+
+    evictConnectionCache('team-alpha');
+
+    expect(connectionCache.has('team-alpha')).toBe(false);
+    expect(connectionCache.has('team-beta')).toBe(true);
+  });
+
+  test('clearConnectionCache empties the entire cache', () => {
+    connectionCache.set('team-alpha', Date.now());
+    connectionCache.set('team-beta', Date.now());
+
+    clearConnectionCache();
+
+    expect(connectionCache.size).toBe(0);
+  });
+
+  test('pruneConnectionCache removes entries older than TTL', () => {
+    const now = 1000000;
+    connectionCache.set('team-stale', now - 70000);
+    connectionCache.set('team-fresh', now - 10000);
+
+    pruneConnectionCache(now);
+
+    expect(connectionCache.has('team-stale')).toBe(false);
+    expect(connectionCache.has('team-fresh')).toBe(true);
+  });
+
+  test('evicts cache entry when instance readiness check fails', async () => {
+    connectionCache.set('team-failing', Date.now() - 20000);
+    getJuiceShopInstanceForTeamname.mockRejectedValue(new Error('Instance not found'));
+
+    await request(app)
+      .get('/rest/admin/application-version')
+      .set('Cookie', ['balancer=t-team-failing'])
+      .send()
+      .expect(302);
+
+    expect(connectionCache.has('team-failing')).toBe(false);
+  });
+
+  test('admin instance deletion evicts team from connection cache', async () => {
+    connectionCache.set('team-to-delete', Date.now());
+    deleteNamespaceForTeam.mockResolvedValue();
+
+    await request(app)
+      .delete('/balancer/admin/teams/team-to-delete/delete')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-to-delete')).toBe(false);
+  });
+
+  test('admin challenge 74 restart evicts team from connection cache', async () => {
+    connectionCache.set('team-c74', Date.now());
+    deletePodForTeam.mockResolvedValue();
+
+    await request(app)
+      .post('/balancer/admin/teams/team-c74/restartchallenge74')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74')).toBe(false);
+    expect(deletePodForTeam).toHaveBeenCalledWith('team-c74');
+  });
+
+  test('admin challenge 74 container restart endpoint evicts team from connection cache', async () => {
+    connectionCache.set('team-c74-c', Date.now());
+    deletePodForTeam.mockResolvedValue();
+
+    await request(app)
+      .post('/balancer/admin/teams/team-c74-c/restartchallenge74container')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74-c')).toBe(false);
+    expect(deletePodForTeam).toHaveBeenCalledWith('team-c74-c');
+  });
+
+  test('admin challenge 74 secret deletion evicts team from connection cache', async () => {
+    connectionCache.set('team-c74-secret', Date.now());
+    deleteChallenge74SecretForTeam.mockResolvedValue();
+
+    await request(app)
+      .delete('/balancer/admin/teams/team-c74-secret/deletechallenge74')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74-secret')).toBe(false);
+    expect(deleteChallenge74SecretForTeam).toHaveBeenCalledWith('team-c74-secret');
+  });
 });
