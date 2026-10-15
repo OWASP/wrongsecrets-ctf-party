@@ -202,6 +202,10 @@ function shouldProxyUpgradeToVirtualDesktop(requestUrl) {
     pathname.startsWith('/guaclite/') ||
     pathname === '/websockets' ||
     pathname.startsWith('/websockets/') ||
+    pathname === '/api/websockets' ||
+    pathname.startsWith('/api/websockets/') ||
+    pathname === '/ws/api/websockets' ||
+    pathname.startsWith('/ws/api/websockets/') ||
     pathname === '/socket.io' ||
     pathname === '/socket.io/' ||
     pathname.startsWith('/socket.io/') ||
@@ -349,7 +353,12 @@ function proxyTrafficToJuiceShop(req, res) {
     req.path === '/files/socket.io/socket.io.js' ||
     req.path === '/js/vendor/jquery.min.js' ||
     req.path === '/files/socket.io/' ||
-    req.path === '/files/socket.io/socket.io.js.map'
+    req.path === '/files/socket.io/socket.io.js.map' ||
+    req.path === '/files/socket.io/socket.io.min.js' ||
+    req.path.startsWith('/assets/selkies-core') ||
+    req.path.startsWith('/assets/selkies-admin') ||
+    req.path === '/api/websockets' ||
+    req.path === '/ws/api/websockets'
   ) {
     target = {
       target: `http://${teamname}-virtualdesktop.${teamname}.svc:8080`,
