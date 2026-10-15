@@ -9,9 +9,65 @@ const { isValidTeamname } = require('../validation');
 const {
   getJuiceShopInstanceForTeamname,
   updateLastRequestTimestampForTeam,
+  recordSolvedChallengeForTeam,
 } = require('../kubernetes');
+const { keyDifficultyMapping } = require('../score-board/score-board');
+
+const CORRECT_ANSWER_MARKER = 'answer is correct';
+
+function extractDifficultyFromBody(body, challengeKey) {
+  if (typeof body === 'string') {
+    // 1. Look for difficulty stars in WrongSecrets challenge heading:
+    // e.g. <span data-cy="challenge-title">Challenge 7</span> <span>☆☆☆☆</span>
+    const starsMatch =
+      body.match(
+        /<span[^>]*data-cy=["']challenge-title["'][^>]*>[\s\S]*?<\/span>\s*<span[^>]*>\s*([☆★]+)\s*<\/span>/i
+      ) ||
+      body.match(
+        /<p[^>]*class=["'][^"']*h1[^"']*["'][^>]*>[\s\S]*?<span[^>]*>\s*([☆★]+)\s*<\/span>/i
+      );
+
+    if (starsMatch && starsMatch[1]) {
+      const starCount = starsMatch[1].length;
+      if (starCount >= 1 && starCount <= 5) {
+        return starCount;
+      }
+    }
+
+    // 2. Look for JSON difficulty if response is JSON (e.g. { "difficulty": 4 }):
+    const jsonMatch = body.match(/"difficulty"\s*:\s*(\d+)/i);
+    if (jsonMatch && jsonMatch[1]) {
+      const diff = Number.parseInt(jsonMatch[1], 10);
+      if (diff >= 1 && diff <= 5) {
+        return diff;
+      }
+    }
+  }
+
+  // 3. Fallback to keyDifficultyMapping or default 1
+  return keyDifficultyMapping[challengeKey] || 1;
+}
+
+function getSubmittedChallengeKey(req) {
+  if ((req.method || '').toUpperCase() !== 'POST') {
+    return undefined;
+  }
+
+  const requestUrl = new URL(req.url || '/', 'http://localhost');
+  // The action=submit field is in the form body, so rely on the response marker instead.
+  if (requestUrl.searchParams.get('action') === 'reset') {
+    return undefined;
+  }
+
+  const challengeMatch = requestUrl.pathname.match(/^\/challenge\/challenge-(\d+)\/?$/);
+  return challengeMatch ? `challenge${challengeMatch[1]}` : undefined;
+}
 
 proxy.on('proxyReq', (proxyReq, req) => {
+  if (getSubmittedChallengeKey(req)) {
+    proxyReq.setHeader('accept-encoding', 'identity');
+  }
+
   if (!req.body || Object.keys(req.body).length === 0) {
     return;
   }
@@ -29,6 +85,52 @@ proxy.on('proxyReq', (proxyReq, req) => {
   const bodyData = JSON.stringify(req.body);
   proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
   proxyReq.write(bodyData);
+});
+
+proxy.on('proxyRes', (proxyRes, req) => {
+  const challengeKey = getSubmittedChallengeKey(req);
+  if (!challengeKey || proxyRes.statusCode < 200 || proxyRes.statusCode >= 300) {
+    return;
+  }
+
+  const contentEncoding = proxyRes.headers['content-encoding'];
+  if (contentEncoding && contentEncoding !== 'identity') {
+    logger.warn(`Cannot inspect compressed response for ${challengeKey} submission`);
+    return;
+  }
+
+  const teamname = req.cleanedTeamname;
+  if (!isValidTeamname(teamname)) {
+    logger.warn(`Cannot record ${challengeKey} solve with invalid team name: ${teamname}`);
+    return;
+  }
+
+  let responseTail = '';
+  let recorded = false;
+  let bufferedBody = '';
+  const MAX_BUFFERED_BODY_BYTES = 64 * 1024;
+
+  proxyRes.on('data', (chunk) => {
+    if (recorded) {
+      return;
+    }
+
+    const chunkStr = chunk.toString('utf8');
+    if (bufferedBody.length < MAX_BUFFERED_BODY_BYTES) {
+      bufferedBody += chunkStr;
+    }
+    const responseText = responseTail + chunkStr;
+    if (responseText.includes(CORRECT_ANSWER_MARKER)) {
+      recorded = true;
+      const difficulty = extractDifficultyFromBody(bufferedBody, challengeKey);
+      recordSolvedChallengeForTeam(teamname, challengeKey, difficulty).catch((error) => {
+        logger.error(`Failed to record ${challengeKey} solve for team ${teamname}:`, error);
+      });
+      return;
+    }
+
+    responseTail = responseText.slice(-(CORRECT_ANSWER_MARKER.length - 1));
+  });
 });
 
 const router = express.Router();
@@ -60,6 +162,39 @@ function redirectAdminTrafficToBalancerPage(req, res, next) {
 }
 
 const connectionCache = new Map();
+const MAX_CONNECTION_CACHE_SIZE = 10000;
+const CONNECTION_CACHE_TTL_MS = 60 * 1000;
+
+function pruneConnectionCache(currentTime = Date.now()) {
+  for (const [key, timestamp] of connectionCache.entries()) {
+    if (currentTime - timestamp > CONNECTION_CACHE_TTL_MS) {
+      connectionCache.delete(key);
+    }
+  }
+  while (connectionCache.size > MAX_CONNECTION_CACHE_SIZE) {
+    const oldestKey = connectionCache.keys().next().value;
+    connectionCache.delete(oldestKey);
+  }
+}
+
+function setConnectionCache(teamname, currentTime) {
+  if (connectionCache.size >= MAX_CONNECTION_CACHE_SIZE) {
+    pruneConnectionCache(currentTime);
+  }
+  connectionCache.delete(teamname);
+  connectionCache.set(teamname, currentTime);
+}
+
+function evictConnectionCache(teamname) {
+  if (teamname) {
+    connectionCache.delete(teamname);
+  }
+}
+
+function clearConnectionCache() {
+  connectionCache.clear();
+}
+
 function shouldProxyUpgradeToVirtualDesktop(requestUrl) {
   const { pathname } = new URL(requestUrl, 'http://localhost');
   return (
@@ -141,9 +276,11 @@ async function checkIfInstanceIsUp(req, res, next) {
       return next();
     }
 
+    evictConnectionCache(teamname);
     logger.warn(`Tried to proxy for team ${teamname}, but no ready instance found.`);
     return redirectToBalancerWithMessage(res, 'instance-restarting', teamname);
   } catch (error) {
+    evictConnectionCache(teamname);
     logger.warn(`Could not find instance for team: '${teamname}'`);
     logger.warn(JSON.stringify(error));
     return redirectToBalancerWithMessage(res, 'instance-not-found', teamname);
@@ -163,12 +300,12 @@ async function updateLastConnectTimestamp(req, res, next) {
     if (connectionCache.has(teamname)) {
       const timeDifference = currentTime - connectionCache.get(teamname);
       if (timeDifference > 10000) {
-        connectionCache.set(teamname, currentTime);
+        setConnectionCache(teamname, currentTime);
         await updateLastRequestTimestampForTeam(teamname);
       }
     } else {
       await updateLastRequestTimestampForTeam(teamname);
-      connectionCache.set(teamname, currentTime);
+      setConnectionCache(teamname, currentTime);
     }
   } catch (error) {
     logger.warn(`Failed to update lastRequest timestamp for team '${teamname}'"`);
@@ -255,3 +392,9 @@ router.use(
 
 module.exports = router;
 module.exports.attachUpgradeHandler = attachUpgradeHandler;
+module.exports.evictConnectionCache = evictConnectionCache;
+module.exports.clearConnectionCache = clearConnectionCache;
+module.exports.pruneConnectionCache = pruneConnectionCache;
+module.exports.connectionCache = connectionCache;
+module.exports.MAX_CONNECTION_CACHE_SIZE = MAX_CONNECTION_CACHE_SIZE;
+module.exports.extractDifficultyFromBody = extractDifficultyFromBody;

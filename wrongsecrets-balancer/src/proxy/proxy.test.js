@@ -1,16 +1,27 @@
 jest.mock('../kubernetes');
 jest.mock('http-proxy');
 
+const { EventEmitter } = require('node:events');
 const { advanceBy, advanceTo, clear } = require('jest-date-mock');
 const request = require('supertest');
 const { __mockProxy } = require('http-proxy');
 
 const app = require('../app');
 const { get } = require('../config');
-const { attachUpgradeHandler } = require('./proxy');
+const {
+  attachUpgradeHandler,
+  evictConnectionCache,
+  clearConnectionCache,
+  pruneConnectionCache,
+  connectionCache,
+} = require('./proxy');
 const {
   getJuiceShopInstanceForTeamname,
   updateLastRequestTimestampForTeam,
+  recordSolvedChallengeForTeam,
+  deleteNamespaceForTeam,
+  deletePodForTeam,
+  deleteChallenge74SecretForTeam,
 } = require('../kubernetes');
 
 afterAll(async () => {
@@ -21,6 +32,7 @@ beforeEach(() => {
   clear();
   getJuiceShopInstanceForTeamname.mockClear();
   updateLastRequestTimestampForTeam.mockClear();
+  recordSolvedChallengeForTeam.mockClear();
   __mockProxy.web.mockClear();
   __mockProxy.ws.mockClear();
 });
@@ -40,6 +52,91 @@ test('should proxy requests going to JuiceShop when they got a team cookie', asy
     .send()
     .expect(200)
     .expect('proxied');
+});
+
+test('records a challenge when its submission response contains the correct-answer marker', async () => {
+  await request(app)
+    .post('/challenge/challenge-7?action=submit')
+    .set('Cookie', ['balancer=t-team-score-test'])
+    .type('form')
+    .send({ solution: 'answer' })
+    .expect(200)
+    .expect('proxied');
+
+  const proxiedReq = __mockProxy.web.mock.calls[0][0];
+  const upstreamRequest = {
+    setHeader: jest.fn(),
+    getHeader: jest.fn().mockReturnValue('application/x-www-form-urlencoded'),
+    write: jest.fn(),
+  };
+  __mockProxy.emit('proxyReq', upstreamRequest, proxiedReq);
+  expect(upstreamRequest.setHeader).toHaveBeenCalledWith('accept-encoding', 'identity');
+
+  const proxyResponse = new EventEmitter();
+  proxyResponse.statusCode = 200;
+  proxyResponse.headers = {};
+  __mockProxy.emit('proxyRes', proxyResponse, proxiedReq);
+  proxyResponse.emit('data', Buffer.from('<div>Your answer is cor'));
+  proxyResponse.emit('data', Buffer.from('rect!</div>'));
+
+  expect(recordSolvedChallengeForTeam).toHaveBeenCalledWith('team-score-test', 'challenge7', 4);
+});
+
+test('extracts challenge difficulty stars from response body and passes to recordSolvedChallengeForTeam', async () => {
+  await request(app)
+    .post('/challenge/challenge-18?action=submit')
+    .set('Cookie', ['balancer=t-team-stars-test'])
+    .type('form')
+    .send({ solution: 'secret-answer' })
+    .expect(200);
+
+  const proxiedReq = __mockProxy.web.mock.calls[0][0];
+  const proxyResponse = new EventEmitter();
+  proxyResponse.statusCode = 200;
+  proxyResponse.headers = {};
+  __mockProxy.emit('proxyRes', proxyResponse, proxiedReq);
+  proxyResponse.emit(
+    'data',
+    Buffer.from(
+      '<p class="h1"><span data-cy="challenge-title">Challenge 18</span> <span>☆☆☆☆☆</span></p>'
+    )
+  );
+  proxyResponse.emit('data', Buffer.from('<div>Your answer is correct!</div>'));
+
+  expect(recordSolvedChallengeForTeam).toHaveBeenCalledWith('team-stars-test', 'challenge18', 5);
+});
+
+test('extractDifficultyFromBody extracts star counts and JSON correctly', () => {
+  const { extractDifficultyFromBody } = require('./proxy');
+  expect(extractDifficultyFromBody('<span>☆☆☆☆</span>', 'challenge7')).toBe(4);
+  expect(
+    extractDifficultyFromBody(
+      '<span data-cy="challenge-title">Challenge 0</span> <span>☆</span>',
+      'challenge0'
+    )
+  ).toBe(1);
+  expect(extractDifficultyFromBody('<p class="h1"><span>★★★</span></p>', 'challenge3')).toBe(3);
+  expect(extractDifficultyFromBody('{"difficulty": 5}', 'challenge18')).toBe(5);
+  expect(extractDifficultyFromBody('<div>no stars</div>', 'challenge7')).toBe(4);
+  expect(extractDifficultyFromBody('<div>no stars</div>', 'unknown')).toBe(1);
+});
+
+test('does not record a challenge for an incorrect submission response', async () => {
+  await request(app)
+    .post('/challenge/challenge-7?action=submit')
+    .set('Cookie', ['balancer=t-team-score-incorrect'])
+    .type('form')
+    .send({ solution: 'wrong' })
+    .expect(200);
+
+  const proxiedReq = __mockProxy.web.mock.calls[0][0];
+  const proxyResponse = new EventEmitter();
+  proxyResponse.statusCode = 200;
+  proxyResponse.headers = {};
+  __mockProxy.emit('proxyRes', proxyResponse, proxiedReq);
+  proxyResponse.emit('data', Buffer.from('Your answer is incorrect, try harder ;-)'));
+
+  expect(recordSolvedChallengeForTeam).not.toHaveBeenCalled();
 });
 
 test("should redirect to /balancer/ when requests don't have a team cookie", async () => {
@@ -323,4 +420,108 @@ test('should destroy socket for unsupported websocket upgrade paths', () => {
 
   expect(socket.destroy).toHaveBeenCalledTimes(1);
   expect(__mockProxy.ws).not.toHaveBeenCalled();
+});
+
+describe('connectionCache eviction and bounded lifecycle', () => {
+  beforeEach(() => {
+    clearConnectionCache();
+  });
+
+  test('evictConnectionCache deletes specific team entry', () => {
+    connectionCache.set('team-alpha', Date.now());
+    connectionCache.set('team-beta', Date.now());
+
+    evictConnectionCache('team-alpha');
+
+    expect(connectionCache.has('team-alpha')).toBe(false);
+    expect(connectionCache.has('team-beta')).toBe(true);
+  });
+
+  test('clearConnectionCache empties the entire cache', () => {
+    connectionCache.set('team-alpha', Date.now());
+    connectionCache.set('team-beta', Date.now());
+
+    clearConnectionCache();
+
+    expect(connectionCache.size).toBe(0);
+  });
+
+  test('pruneConnectionCache removes entries older than TTL', () => {
+    const now = 1000000;
+    connectionCache.set('team-stale', now - 70000);
+    connectionCache.set('team-fresh', now - 10000);
+
+    pruneConnectionCache(now);
+
+    expect(connectionCache.has('team-stale')).toBe(false);
+    expect(connectionCache.has('team-fresh')).toBe(true);
+  });
+
+  test('evicts cache entry when instance readiness check fails', async () => {
+    connectionCache.set('team-failing', Date.now() - 20000);
+    getJuiceShopInstanceForTeamname.mockRejectedValue(new Error('Instance not found'));
+
+    await request(app)
+      .get('/rest/admin/application-version')
+      .set('Cookie', ['balancer=t-team-failing'])
+      .send()
+      .expect(302);
+
+    expect(connectionCache.has('team-failing')).toBe(false);
+  });
+
+  test('admin instance deletion evicts team from connection cache', async () => {
+    connectionCache.set('team-to-delete', Date.now());
+    deleteNamespaceForTeam.mockResolvedValue();
+
+    await request(app)
+      .delete('/balancer/admin/teams/team-to-delete/delete')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-to-delete')).toBe(false);
+  });
+
+  test('admin challenge 74 restart evicts team from connection cache', async () => {
+    connectionCache.set('team-c74', Date.now());
+    deletePodForTeam.mockResolvedValue();
+
+    await request(app)
+      .post('/balancer/admin/teams/team-c74/restartchallenge74')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74')).toBe(false);
+    expect(deletePodForTeam).toHaveBeenCalledWith('team-c74');
+  });
+
+  test('admin challenge 74 container restart endpoint evicts team from connection cache', async () => {
+    connectionCache.set('team-c74-c', Date.now());
+    deletePodForTeam.mockResolvedValue();
+
+    await request(app)
+      .post('/balancer/admin/teams/team-c74-c/restartchallenge74container')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74-c')).toBe(false);
+    expect(deletePodForTeam).toHaveBeenCalledWith('team-c74-c');
+  });
+
+  test('admin challenge 74 secret deletion evicts team from connection cache', async () => {
+    connectionCache.set('team-c74-secret', Date.now());
+    deleteChallenge74SecretForTeam.mockResolvedValue();
+
+    await request(app)
+      .delete('/balancer/admin/teams/team-c74-secret/deletechallenge74')
+      .set('Cookie', [`balancer=t-${get('admin.username')}`])
+      .send()
+      .expect(200);
+
+    expect(connectionCache.has('team-c74-secret')).toBe(false);
+    expect(deleteChallenge74SecretForTeam).toHaveBeenCalledWith('team-c74-secret');
+  });
 });

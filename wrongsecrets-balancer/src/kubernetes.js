@@ -3,10 +3,25 @@ const {
   AppsV1Api,
   CoreV1Api,
   CustomObjectsApi,
-  PatchUtils,
   RbacAuthorizationV1Api,
   NetworkingV1Api,
 } = require('@kubernetes/client-node');
+
+const JSON_MERGE_PATCH_CONTENT_TYPE = 'application/merge-patch+json';
+
+const jsonMergePatchOptions = {
+  middleware: [
+    {
+      pre(context) {
+        context.setHeaderParam('Content-Type', JSON_MERGE_PATCH_CONTENT_TYPE);
+        return { toPromise: () => Promise.resolve(context) };
+      },
+      post(response) {
+        return { toPromise: () => Promise.resolve(response) };
+      },
+    },
+  ],
+};
 
 const kc = new KubeConfig();
 const { logger } = require('./logger');
@@ -1062,17 +1077,10 @@ const patchServiceAccountForTeamForAWS = async (team) => {
     },
   };
   return k8sCoreApi
-    .patchNamespacedServiceAccount({
-      name: 'default',
-      namespace: `t-${team}`,
-      body: patch,
-      pretty: undefined,
-      dryRun: undefined,
-      fieldManager: undefined,
-      fieldValidation: undefined,
-      force: undefined,
-      headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH },
-    })
+    .patchNamespacedServiceAccount(
+      { name: 'default', namespace: `t-${team}`, body: patch },
+      jsonMergePatchOptions
+    )
     .catch((error) => {
       throw new Error(JSON.stringify(error));
     });
@@ -2510,25 +2518,160 @@ const getJuiceShopInstances = () => {
     });
 };
 
+const CHALLENGES_ANNOTATION = 'wrongsecrets-ctf-party/challenges';
+const CHALLENGES_SOLVED_ANNOTATION = 'wrongsecrets-ctf-party/challengesSolved';
+const MAX_CHALLENGE_PATCH_ATTEMPTS = 5;
+
+const isKubernetesConflict = (error) =>
+  error.statusCode === 409 || error.code === 409 || error.response?.statusCode === 409;
+
+const solvedChallengesCache = new Map();
+
+const clearSolvedChallengesCache = (teamname) => {
+  if (teamname) {
+    solvedChallengesCache.delete(teamname);
+  } else {
+    solvedChallengesCache.clear();
+  }
+};
+
+const recordSolvedChallengeForTeam = async (teamname, challengeKey, difficulty = 1) => {
+  const validatedTeamName = validateTeamName(teamname);
+  if (typeof challengeKey !== 'string' || !/^challenge\d+$/.test(challengeKey)) {
+    throw new Error(`Invalid challenge key provided: ${challengeKey}`);
+  }
+
+  // Fast in-memory check to speed up score keeping for already solved challenges
+  const cachedTeamSolved = solvedChallengesCache.get(validatedTeamName);
+  if (cachedTeamSolved && cachedTeamSolved.has(challengeKey)) {
+    return { updated: false };
+  }
+
+  const name = `t-${validatedTeamName}-wrongsecrets`;
+  const namespace = `t-${validatedTeamName}`;
+  const challengeAnnotationPath = `/metadata/annotations/${CHALLENGES_ANNOTATION.replaceAll('/', '~1')}`;
+  const solvedAnnotationPath = `/metadata/annotations/${CHALLENGES_SOLVED_ANNOTATION.replaceAll('/', '~1')}`;
+
+  for (let attempt = 1; attempt <= MAX_CHALLENGE_PATCH_ATTEMPTS; attempt += 1) {
+    const deployment = await k8sAppsApi.readNamespacedDeployment({ name, namespace });
+    const metadata = deployment.metadata || {};
+    if (!metadata.resourceVersion) {
+      throw new Error(`Deployment ${namespace}/${name} is missing its resource version`);
+    }
+
+    const annotations = metadata.annotations || {};
+    let challenges;
+    try {
+      const parsed = JSON.parse(annotations[CHALLENGES_ANNOTATION] || '[]');
+      challenges = Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      logger.warn(
+        `Failed to parse ${CHALLENGES_ANNOTATION} annotation for team ${validatedTeamName}:`,
+        error
+      );
+      challenges = [];
+    }
+
+    // Seed or update the in-memory cache with challenges retrieved from deployment
+    let teamCache = solvedChallengesCache.get(validatedTeamName);
+    if (!teamCache) {
+      teamCache = new Set();
+      solvedChallengesCache.set(validatedTeamName, teamCache);
+    }
+    for (const challenge of challenges) {
+      if (challenge?.key) {
+        teamCache.add(challenge.key);
+      }
+    }
+
+    if (challenges.some((challenge) => challenge?.key === challengeKey)) {
+      teamCache.add(challengeKey);
+      return { updated: false };
+    }
+
+    const numericDifficulty = Number(difficulty) || 1;
+    const nextChallenges = [...challenges, { key: challengeKey, difficulty: numericDifficulty }];
+    const patch = [
+      { op: 'test', path: '/metadata/resourceVersion', value: metadata.resourceVersion },
+    ];
+    if (metadata.annotations) {
+      patch.push(
+        {
+          op: annotations[CHALLENGES_ANNOTATION] === undefined ? 'add' : 'replace',
+          path: challengeAnnotationPath,
+          value: JSON.stringify(nextChallenges),
+        },
+        {
+          op: annotations[CHALLENGES_SOLVED_ANNOTATION] === undefined ? 'add' : 'replace',
+          path: solvedAnnotationPath,
+          value: String(nextChallenges.length),
+        }
+      );
+    } else {
+      patch.push({
+        op: 'add',
+        path: '/metadata/annotations',
+        value: {
+          [CHALLENGES_ANNOTATION]: JSON.stringify(nextChallenges),
+          [CHALLENGES_SOLVED_ANNOTATION]: String(nextChallenges.length),
+        },
+      });
+    }
+
+    const options = {
+      middleware: [
+        {
+          pre(context) {
+            context.setHeaderParam('Content-Type', 'application/json-patch+json');
+            return { toPromise: () => Promise.resolve(context) };
+          },
+          post(response) {
+            return { toPromise: () => Promise.resolve(response) };
+          },
+        },
+      ],
+    };
+
+    try {
+      await k8sAppsApi.patchNamespacedDeployment({ name, namespace, body: patch }, options);
+      teamCache.add(challengeKey);
+      try {
+        const { invalidateScoreboardCache } = require('./score-board/score-board');
+        invalidateScoreboardCache();
+      } catch {
+        // Ignore if scoreboard module is not loaded
+      }
+      return { updated: true };
+    } catch (error) {
+      if (!isKubernetesConflict(error) || attempt === MAX_CHALLENGE_PATCH_ATTEMPTS) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error(`Failed to record solved challenge for team ${validatedTeamName}`);
+};
+
 const updateLastRequestTimestampForTeam = (teamname) => {
-  const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
   return k8sAppsApi
-    .patchNamespacedDeployment({
-      name: `t-${teamname}-wrongsecrets`,
-      namespace: `t-${teamname}`,
-      body: {
-        metadata: {
-          annotations: {
-            'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
-            'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+    .patchNamespacedDeployment(
+      {
+        name: `t-${teamname}-wrongsecrets`,
+        namespace: `t-${teamname}`,
+        body: {
+          metadata: {
+            annotations: {
+              'wrongsecrets-ctf-party/lastRequest': `${new Date().getTime()}`,
+              'wrongsecrets-ctf-party/lastRequestReadable': new Date().toString(),
+            },
           },
         },
       },
-      options: options,
-    })
+      jsonMergePatchOptions
+    )
     .catch((error) => {
       logger.info('error for updateLastRequestTimestampForTeam: {}', error);
-      throw new Error(error.response.body.message);
+      throw new Error(error.response?.body?.message || error.message || 'Kubernetes patch failed');
     });
 };
 
@@ -2541,35 +2684,13 @@ const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
     },
   };
 
-  const options = {
-    middleware: [
-      {
-        pre(context) {
-          context.setHeaderParam('Content-Type', 'application/merge-patch+json');
-          return {
-            toPromise() {
-              return Promise.resolve(context);
-            },
-          };
-        },
-        post(response) {
-          return {
-            toPromise() {
-              return Promise.resolve(response);
-            },
-          };
-        },
-      },
-    ],
-  };
-
   return k8sAppsApi.patchNamespacedDeployment(
     {
       name: `t-${teamname}-wrongsecrets`,
       namespace: `t-${teamname}`,
       body: deploymentPatch,
     },
-    options
+    jsonMergePatchOptions
   );
 };
 
@@ -2720,18 +2841,10 @@ const patchServiceAccountForTeamForGCP = async (team) => {
       },
     },
   };
-  const options = { headers: { 'Content-type': PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH } };
-
   return k8sCoreApi
     .patchNamespacedServiceAccount(
       { name: 'default', namespace: `t-${team}`, body: patch },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      options
+      jsonMergePatchOptions
     )
     .catch((error) => {
       throw new Error(JSON.stringify(error));
@@ -3064,6 +3177,8 @@ module.exports = {
   getJuiceShopInstances,
   getJuiceShopInstanceForTeamname, // THIS IS THE KEY ONE THAT WAS MISSING
   updateLastRequestTimestampForTeam,
+  recordSolvedChallengeForTeam,
+  clearSolvedChallengesCache,
   changePasscodeHashForTeam,
   deleteNamespaceForTeam,
   deletePodForTeam,
