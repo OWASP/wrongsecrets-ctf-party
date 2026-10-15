@@ -249,7 +249,7 @@ vaultContainer:
   maxInstances: 500
   # -- Juice Shop Image to use
   image: hashicorp/vault
-  tag: 1.19.3
+  tag: 1.21.4
   repository: commjoenie/wrongSecrets
   resources:
     request:
