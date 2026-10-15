@@ -175,7 +175,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | vaultContainer.securityContext.readOnlyRootFilesystem | bool | `true` |  |
 | vaultContainer.securityContext.runAsNonRoot | bool | `true` |  |
 | vaultContainer.securityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
-| vaultContainer.tag | string | `"1.19.3"` |  |
+| vaultContainer.tag | string | `"1.21.4"` |  |
 | vaultContainer.tolerations | list | `[]` |  |
 | virtualdesktop.affinity | object | `{}` |  |
 | virtualdesktop.envFrom | list | `[]` |  |
