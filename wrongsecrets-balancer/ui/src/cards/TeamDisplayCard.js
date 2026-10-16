@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import axios from 'axios';
 import { FormattedMessage } from 'react-intl';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 import { BodyCard, SecondaryButton, H3 } from '../Components';
 import astronaut from './astronaut.svg';
@@ -32,6 +32,19 @@ const Subtitle = styled.span`
   color: var(--font-color-highlight);
   font-weight: 300;
 `;
+
+const ScoreBoardButton = () => {
+  return (
+    <SecondaryButton
+      as={Link}
+      to="/score-board/"
+      data-test-id="scoreboard-button"
+      style={{ textDecoration: 'none' }}
+    >
+      <FormattedMessage id="scoreboard" defaultMessage="Scoreboard" />
+    </SecondaryButton>
+  );
+};
 
 const LogoutButton = () => {
   const navigate = useNavigate();
@@ -71,6 +84,7 @@ export const TeamDisplayCard = ({ teamname }) => {
         </Subtitle>
         <H3>{teamname}</H3>
       </TeamDisplayTextWrapper>
+      <ScoreBoardButton />
       <LogoutButton />
       <PasscodeResetButton teamname={teamname} />
     </TeamDisplayCardWrapper>

@@ -272,6 +272,69 @@ describe('score-board getTopTeams', () => {
       .expect('Content-Type', /text\/html/);
   });
 
+  test('filters challenges that were already completed so they are not counted again', async () => {
+    getJuiceShopInstances.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            labels: { team: 'team-duplicate-test' },
+            annotations: {
+              'wrongsecrets-ctf-party/challenges': JSON.stringify([
+                { key: 'challenge0' }, // diff 1 -> 10 pts
+                { key: 'challenge0' }, // duplicate solve of challenge0
+                { key: 'challenge1' }, // diff 1 -> 10 pts
+                { key: 'challenge0' }, // another duplicate
+              ]),
+            },
+          },
+        },
+      ],
+    });
+
+    await getTopTeams(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const response = res.send.mock.calls[0][0];
+    expect(response.teams).toHaveLength(1);
+    expect(response.teams[0].score).toBe(20); // 10 + 10 (duplicates ignored)
+    expect(response.teams[0].challenges).toHaveLength(2);
+    expect(response.teams[0].challenges.map((c) => c.key)).toEqual(['challenge0', 'challenge1']);
+  });
+
+  test('prevents player adjustment of challenge metadata by enforcing authoritative difficulty and stripping unexpected fields', async () => {
+    getJuiceShopInstances.mockResolvedValue({
+      items: [
+        {
+          metadata: {
+            labels: { team: 'team-tamper-test' },
+            annotations: {
+              'wrongsecrets-ctf-party/challenges': JSON.stringify([
+                {
+                  key: 'challenge0',
+                  difficulty: 999, // tampered difficulty, official is 1
+                  customPoints: 10000,
+                  hacked: true,
+                },
+              ]),
+            },
+          },
+        },
+      ],
+    });
+
+    await getTopTeams(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const response = res.send.mock.calls[0][0];
+    expect(response.teams[0].score).toBe(10); // Enforced to authoritative difficulty (1 * 10 = 10)
+    expect(response.teams[0].challenges[0]).toEqual({
+      key: 'challenge0',
+      difficulty: 1,
+    });
+    expect(response.teams[0].challenges[0].customPoints).toBeUndefined();
+    expect(response.teams[0].challenges[0].hacked).toBeUndefined();
+  });
+
   test('GET /balancer/score-board redirects to trailing slash for scoreboard UI', async () => {
     await request(app).get('/balancer/score-board').expect(301);
   });

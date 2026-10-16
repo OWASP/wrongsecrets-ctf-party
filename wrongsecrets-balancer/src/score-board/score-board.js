@@ -113,24 +113,44 @@ async function getTopTeams(req, res) {
         challengeProgress = [];
       }
 
-      const scoredChallenges = challengeProgress.map((progress) => {
-        let difficulty =
-          typeof progress.difficulty === 'number' && !Number.isNaN(progress.difficulty)
-            ? progress.difficulty
-            : keyDifficultyMapping[progress.key];
+      const seenChallenges = new Set();
+      const scoredChallenges = [];
 
-        if (difficulty === undefined) {
-          logger.warn(
-            `Difficulty for challenge "${progress.key}" is unknown. Falling back to default difficulty.`
-          );
-          difficulty = 1;
+      for (const progress of Array.isArray(challengeProgress) ? challengeProgress : []) {
+        if (!progress || typeof progress.key !== 'string' || !/^challenge\d+$/.test(progress.key)) {
+          continue;
         }
 
-        return {
-          ...progress,
+        // Filter challenges that were already completed not to be counted again
+        if (seenChallenges.has(progress.key)) {
+          continue;
+        }
+        seenChallenges.add(progress.key);
+
+        // Metadata protection: Authoritative server mapping always takes precedence over user/annotation values
+        let difficulty = keyDifficultyMapping[progress.key];
+        if (difficulty === undefined) {
+          if (
+            typeof progress.difficulty === 'number' &&
+            !Number.isNaN(progress.difficulty) &&
+            progress.difficulty >= 1 &&
+            progress.difficulty <= 5
+          ) {
+            difficulty = Math.floor(progress.difficulty);
+          } else {
+            logger.warn(
+              `Difficulty for challenge "${progress.key}" is unknown. Falling back to default difficulty.`
+            );
+            difficulty = 1;
+          }
+        }
+
+        // Only retain authoritative { key, difficulty } metadata
+        scoredChallenges.push({
+          key: progress.key,
           difficulty,
-        };
-      });
+        });
+      }
 
       let score = 0;
       for (const { difficulty } of scoredChallenges) {

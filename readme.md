@@ -19,6 +19,7 @@ Note that we:
 - have a [Webtop](https://docs.linuxserver.io/images/docker-webtop) integrated for each player
 - have a WrongSecrets instance integrated for each player
 - A working admin interface which can restart both or delete both (by deleting the full namespace)
+- A live scoreboard (`/balancer/score-board/`) tracking top teams, scores, and completed challenges in real time
 - Do not support any progress watchdog as you will have access to it, we therefore disabled it.
 - It can cleanup old & unused namespaces automatically.
 
@@ -99,6 +100,14 @@ To use the 2 domain setup with CTFD:
 2. Set up a team with spoilers available (On Cloud providers AWS, GCP, or Azure this can be done by changing the deployment of a team you have created and setting ctf-mode=false).
 3. Use these spoilers to manually copy the answers from WrongSecrets to CTFD.
 4. Delete the team used to get these spoilers ( You can delete the entire namespace of the team)
+
+### Live Scoreboard
+
+WrongSecrets CTF Party includes a built-in live scoreboard for tracking team scores, rankings, and completed challenges in real time:
+
+- **Scoreboard UI**: Access it at `http://<balancer-host>/balancer/score-board/`
+- **Scoreboard API**: Top teams JSON payload is available at `GET /balancer/score-board/top`
+- Points are automatically calculated and updated as contestants complete challenges. Completed challenges are filtered so each challenge is only counted once per team, and challenge metadata cannot be adjusted by players.
 
 ### General Helm usage
 

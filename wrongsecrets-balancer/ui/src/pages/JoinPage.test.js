@@ -6,12 +6,21 @@ import axios from 'axios';
 import { JoinPage } from './JoinPage';
 
 jest.mock('axios');
-jest.mock('react-router-dom', () => ({
-  useNavigate: () => jest.fn(),
-  useLocation: () => ({
-    search: '',
+jest.mock(
+  'react-router-dom',
+  () => ({
+    useNavigate: () => jest.fn(),
+    useLocation: () => ({
+      search: '',
+    }),
+    Link: ({ to, children, ...props }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    ),
   }),
-}), { virtual: true });
+  { virtual: true }
+);
 jest.mock('react-intl', () => ({
   IntlProvider: ({ children }) => children,
   FormattedMessage: ({ defaultMessage }) => defaultMessage || null,
@@ -127,5 +136,17 @@ describe('JoinPage', () => {
     });
 
     expect(container.textContent).toContain('Failed to create / join the team');
+  });
+
+  test('renders scoreboard link and view scoreboard button', async () => {
+    await renderJoinPage();
+
+    const scoreboardLink = container.querySelector('[data-test-id="scoreboard-link"]');
+    expect(scoreboardLink).not.toBeNull();
+    expect(scoreboardLink.getAttribute('href')).toBe('/score-board/');
+
+    const scoreboardButton = container.querySelector('[data-test-id="view-scoreboard-button"]');
+    expect(scoreboardButton).not.toBeNull();
+    expect(scoreboardButton.getAttribute('href')).toBe('/score-board/');
   });
 });

@@ -30,7 +30,10 @@ const dutchTranslations = {
   'admin_table.noActiveTeams': 'Geen actieve teams',
   'admin_table.restarting': 'Wordt nu opnieuw gestart',
   'admin_table.restart': 'Herstarten',
-  'welcome_title': "Welkom!",
+  welcome_title: 'Welkom!',
+  view_scoreboard: 'Bekijk Scorebord',
+  scoreboard: 'Scorebord',
+  scoreboard_link_desc: 'Live scorebord voor teamranglijsten en voltooide uitdagingen: ',
 };
 
 export default dutchTranslations;
