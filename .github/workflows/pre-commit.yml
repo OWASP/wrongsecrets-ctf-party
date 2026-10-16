@@ -42,7 +42,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v7
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - uses: actions/cache@v6
         name: Cache plugin dir
         with:
@@ -51,7 +51,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v4
         with:
-          terraform_version: 1.1.7
+          terraform_version: v1.16.6
       - name: Setup TFLint
         uses: terraform-linters/setup-tflint@v6
         with:
