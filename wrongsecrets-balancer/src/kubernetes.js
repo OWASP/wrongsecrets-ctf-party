@@ -794,8 +794,10 @@ const createK8sDeploymentForTeam = async ({ team, passcodeHash }) => {
 
   // Challenge 74 is optional. Only provision its resources when enabled.
   if (challenge74Enabled) {
-    await createChallenge74SecretForTeam(team);
-    await createChallenge74PersonalityConfigMapForTeam(team);
+    await Promise.all([
+      createChallenge74SecretForTeam(team),
+      createChallenge74PersonalityConfigMapForTeam(team),
+    ]);
   }
 
   const deploymentWrongSecretsConfig = {
@@ -1086,8 +1088,10 @@ const patchServiceAccountForTeamForAWS = async (team) => {
 
 const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
   if (challenge74Enabled) {
-    await createChallenge74SecretForTeam(team);
-    await createChallenge74PersonalityConfigMapForTeam(team);
+    await Promise.all([
+      createChallenge74SecretForTeam(team),
+      createChallenge74PersonalityConfigMapForTeam(team),
+    ]);
   }
 
   const deploymentWrongSecretsConfig = {
@@ -1395,8 +1399,10 @@ const createAzureSecretsProviderForTeam = async (team) => {
 
 const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
   if (challenge74Enabled) {
-    await createChallenge74SecretForTeam(team);
-    await createChallenge74PersonalityConfigMapForTeam(team);
+    await Promise.all([
+      createChallenge74SecretForTeam(team),
+      createChallenge74PersonalityConfigMapForTeam(team),
+    ]);
   }
 
   const deploymentWrongSecretsConfig = {
@@ -2856,8 +2862,10 @@ const patchServiceAccountForTeamForGCP = async (team) => {
 
 const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
   if (challenge74Enabled) {
-    await createChallenge74SecretForTeam(team);
-    await createChallenge74PersonalityConfigMapForTeam(team);
+    await Promise.all([
+      createChallenge74SecretForTeam(team),
+      createChallenge74PersonalityConfigMapForTeam(team),
+    ]);
   }
 
   const deploymentWrongSecretsConfig = {
