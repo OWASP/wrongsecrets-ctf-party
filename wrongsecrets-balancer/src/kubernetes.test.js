@@ -151,6 +151,42 @@ describe('recordSolvedChallengeForTeam', () => {
     expect(patchNamespacedDeployment).not.toHaveBeenCalled();
   });
 
+  test('cleans up and deduplicates historical duplicates when recording a new challenge solve', async () => {
+    const { readNamespacedDeployment, patchNamespacedDeployment } =
+      new (require('@kubernetes/client-node').KubeConfig)().makeApiClient();
+    readNamespacedDeployment.mockResolvedValueOnce(
+      deployment('14', {
+        'wrongsecrets-ctf-party/challenges': JSON.stringify([
+          { key: 'challenge1', difficulty: 1 },
+          { key: 'challenge1', difficulty: 1 },
+        ]),
+        'wrongsecrets-ctf-party/challengesSolved': '2',
+      })
+    );
+
+    await expect(recordSolvedChallengeForTeam('team-one', 'challenge2', 1)).resolves.toEqual({
+      updated: true,
+    });
+
+    const [patchRequest] = patchNamespacedDeployment.mock.calls[0];
+    expect(patchRequest.body).toEqual([
+      { op: 'test', path: '/metadata/resourceVersion', value: '14' },
+      {
+        op: 'replace',
+        path: '/metadata/annotations/wrongsecrets-ctf-party~1challenges',
+        value: JSON.stringify([
+          { key: 'challenge1', difficulty: 1 },
+          { key: 'challenge2', difficulty: 1 },
+        ]),
+      },
+      {
+        op: 'replace',
+        path: '/metadata/annotations/wrongsecrets-ctf-party~1challengesSolved',
+        value: '2',
+      },
+    ]);
+  });
+
   test('uses in-memory cache to return early without querying k8s for already solved challenges', async () => {
     const { readNamespacedDeployment, patchNamespacedDeployment } =
       new (require('@kubernetes/client-node').KubeConfig)().makeApiClient();

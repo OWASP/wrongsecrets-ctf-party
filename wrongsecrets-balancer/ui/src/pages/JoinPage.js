@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import cryptoJS from 'crypto-js';
 
 import styled from 'styled-components';
 
-import { BodyCard, H2, Label, Input, Form, Button } from '../Components';
+import { BodyCard, H2, Label, Input, Form, Button, SecondaryButton } from '../Components';
 import { InstanceRestartingCard } from '../cards/InstanceRestartingCard';
 import { InstanceNotFoundCard } from '../cards/InstanceNotFoundCard';
 import { TeamDisplayCard } from '../cards/TeamDisplayCard';
@@ -182,41 +182,38 @@ export const JoinPage = () => {
           ) : null}
           <li>
             The domain where you provide your answer found in exchange for points:{' '}
-            <a href={dynamics.ctfd_url}>
-              {dynamics.ctfd_url}
-            </a>
+            <a href={dynamics.ctfd_url}>{dynamics.ctfd_url}</a>
           </li>
           {dynamics.k8s_env === 'aws' ? (
-          <li>
-            Optionally: the aws storage bucket with Terraform state for the cloud challenges:{' '}
-            <a href={dynamics.s3_bucket_url}>
-              {dynamics.s3_bucket_url}
-            </a>
-            . For this you will need credentials that will be provided to you as part of the CTF
-            instructions.
-          </li>
-          ) : null }
+            <li>
+              Optionally: the aws storage bucket with Terraform state for the cloud challenges:{' '}
+              <a href={dynamics.s3_bucket_url}>{dynamics.s3_bucket_url}</a>. For this you will need
+              credentials that will be provided to you as part of the CTF instructions.
+            </li>
+          ) : null}
           {dynamics.k8s_env === 'azure' ? (
             <li>
               Optionally: the azure storage bucket with Terraform state for the cloud challenges:{' '}
-              <a href={dynamics.azure_blob_url}>
-                {dynamics.azure_blob_url}
-              </a>
-              . For this you will need credentials that will be provided to you as part of the CTF
-              instructions.
+              <a href={dynamics.azure_blob_url}>{dynamics.azure_blob_url}</a>. For this you will
+              need credentials that will be provided to you as part of the CTF instructions.
             </li>
-          ) : null }
+          ) : null}
           {dynamics.k8s_env === 'gcp' ? (
+            <li>
+              Optionally: the gcp storage bucket with Terraform state for the cloud challenges:{' '}
+              <a href={dynamics.gcp_bucket_url}>{dynamics.gcp_bucket_url}</a>. For this you will
+              need credentials that will be provided to you as part of the CTF instructions.
+            </li>
+          ) : null}
           <li>
-            Optionally: the gcp storage bucket with Terraform state for the cloud challenges:{' '}
-            <a href={dynamics.gcp_bucket_url}>
-              {dynamics.gcp_bucket_url}
-            </a>
-            . For this you will need credentials that will be provided to you as part of the CTF
-            instructions.
+            <FormattedMessage
+              id="scoreboard_link_desc"
+              defaultMessage="Live scoreboard for team rankings and solved challenges: "
+            />
+            <Link to="/score-board/" data-test-id="scoreboard-link">
+              /balancer/score-board/
+            </Link>
           </li>
-          ) : null }
-
         </ul>
         <FormattedMessage
           id="welcome_text_2"
@@ -309,6 +306,21 @@ export const JoinPage = () => {
           <Button data-test-id="create-join-team-button" type="submit">
             <FormattedMessage id="create_or_join_team_label" defaultMessage="Create / Join Team" />
           </Button>
+          <SecondaryButton
+            as={Link}
+            to="/score-board/"
+            data-test-id="view-scoreboard-button"
+            style={{
+              display: 'block',
+              width: '100%',
+              margin: '12px 0 0 0',
+              textAlign: 'center',
+              boxSizing: 'border-box',
+              textDecoration: 'none',
+            }}
+          >
+            <FormattedMessage id="view_scoreboard" defaultMessage="View Scoreboard" />
+          </SecondaryButton>
         </Form>
       </BodyCard>
     </>

@@ -10,6 +10,11 @@ jest.mock(
     BrowserRouter: ({ children }) => <div>{children}</div>,
     Routes: ({ children }) => <div>{children}</div>,
     Route: ({ path, element }) => (path === '/' ? <div>{element}</div> : null),
+    Link: ({ to, children, ...props }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    ),
     useNavigate: () => jest.fn(),
     useLocation: () => ({ search: '' }),
     useParams: () => ({ team: 'test' }),

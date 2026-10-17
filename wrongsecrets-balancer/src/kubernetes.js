@@ -2572,19 +2572,28 @@ const recordSolvedChallengeForTeam = async (teamname, challengeKey, difficulty =
       teamCache = new Set();
       solvedChallengesCache.set(validatedTeamName, teamCache);
     }
+    const seen = new Set();
+    const cleanChallenges = [];
     for (const challenge of challenges) {
       if (challenge?.key) {
         teamCache.add(challenge.key);
+        if (!seen.has(challenge.key)) {
+          seen.add(challenge.key);
+          cleanChallenges.push(challenge);
+        }
       }
     }
 
-    if (challenges.some((challenge) => challenge?.key === challengeKey)) {
+    if (seen.has(challengeKey)) {
       teamCache.add(challengeKey);
       return { updated: false };
     }
 
     const numericDifficulty = Number(difficulty) || 1;
-    const nextChallenges = [...challenges, { key: challengeKey, difficulty: numericDifficulty }];
+    const nextChallenges = [
+      ...cleanChallenges,
+      { key: challengeKey, difficulty: numericDifficulty },
+    ];
     const patch = [
       { op: 'test', path: '/metadata/resourceVersion', value: metadata.resourceVersion },
     ];
