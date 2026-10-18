@@ -410,81 +410,40 @@ async function createAWSTeam(req, res) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
-  try {
-    logger.info(`Creating Configmap for team '${team}'`);
-    await createConfigmapForTeam(team);
-
-    logger.info(`Creating Secretsfile for team '${team}'`);
-    await createSecretsfileForTeam(team);
-    await createChallenge33SecretForTeam(team);
-  } catch (error) {
-    logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-  try {
-    logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
-    await createChallenge62SecretForTeam(team);
-    await createChallenge62ConfigMapForTeam(team);
-  } catch (error) {
-    logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-  try {
-    logger.info(
-      `Creating Secrets provider for team ${team}, please make sure the csi driver helm is installed and running`
-    );
-    await createAWSSecretsProviderForTeam(team);
-  } catch (error) {
-    logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
 
   try {
-    logger.info(`Annotating the service account for ${team},`);
-    await patchServiceAccountForTeamForAWS(team);
-  } catch (error) {
-    logger.error(`Error while annotating the service account for  ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating WrongSecrets Deployment for team '${team}' with AWS`);
-    await createAWSDeploymentForTeam({ team, passcodeHash: hash });
-    await createServiceForTeam(team);
+    logger.info(`Creating independent resources for team '${team}' with AWS`);
+    await Promise.all([
+      createConfigmapForTeam(team),
+      createSecretsfileForTeam(team),
+      createChallenge33SecretForTeam(team),
+      createChallenge62SecretForTeam(team),
+      createChallenge62ConfigMapForTeam(team),
+      createAWSSecretsProviderForTeam(team),
+      patchServiceAccountForTeamForAWS(team),
+      createServiceAccountForWebTop(team),
+      createServiceForTeam(team),
+      createDesktopServiceForTeam(team),
+      createNSPsforTeam(team),
+      createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash }),
+    ]);
   } catch (error) {
     logger.error(
-      `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
+      `Error while creating independent resources for ${team}: ${error.message || error}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
-    logger.info(`Creating service account for virtual desktop in AWS '${team}'`);
-    await createServiceAccountForWebTop(team);
-    logger.info(`Created service account for virtual desktopfor team '${team}'`);
+    logger.info(`Creating dependent deployments and role for team '${team}' with AWS`);
+    await Promise.all([
+      createAWSDeploymentForTeam({ team, passcodeHash: hash }),
+      createDesktopDeploymentForTeam({ team, passcodeHash: hash }),
+      createRoleForWebTop(team),
+    ]);
   } catch (error) {
     logger.error(
-      `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
-    );
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating challenge53 Deployment for team '${team}'`);
-    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
-    logger.info(`Created challenge53 Deployment for team '${team}'`);
-  } catch (error) {
-    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating role for virtual desktop in AWS '${team}'`);
-    await createRoleForWebTop(team);
-    logger.info(`Created role for virtual desktopfor team '${team}'`);
-  } catch (error) {
-    logger.error(
-      `Error while creating role for virtual desktop for team ${team}: ${error.message}`
+      `Error while creating dependent deployments or role for team ${team}: ${error.message || error}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
@@ -492,34 +451,11 @@ async function createAWSTeam(req, res) {
   try {
     logger.info(`Creating roleBinding for virtual desktop in AWS '${team}'`);
     await createRoleBindingForWebtop(team);
-    logger.info(`Created roleBinding for virtual desktopfor team '${team}'`);
+    logger.info(`Created roleBinding for virtual desktop for team '${team}'`);
   } catch (error) {
     logger.error(
-      `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
+      `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message || error}`
     );
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating virtualdesktop Deployment for team '${team}'`);
-    await createDesktopDeploymentForTeam({ team, passcodeHash: hash });
-    await createDesktopServiceForTeam(team);
-
-    logger.info(`Created virtualdesktop Deployment for team '${team}'`);
-  } catch (error) {
-    logger.error(
-      `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
-    );
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating network security policies for team '${team}'`);
-    await createNSPsforTeam(team);
-
-    logger.info(`Created network security policies for team  '${team}'`);
-  } catch (error) {
-    logger.error(`Error while network security policies for team ${team}: ${error}`);
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
@@ -537,9 +473,13 @@ async function createAWSTeam(req, res) {
       });
   } catch (error) {
     logger.error(
-      `Error while creating deployment or service for team ${team} on AWS: ${error.message}`
+      `Error while creating deployment or service for team ${team} on AWS: ${error.message || error}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    if (!res.headersSent) {
+      res.status(500).send({ message: 'Failed to Create Instance' });
+    } else {
+      logger.error('Could not send error response because headers were already sent');
+    }
   }
 }
 
@@ -557,73 +497,39 @@ async function createAzureTeam(req, res) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
-  try {
-    logger.info(`Creating Configmap for team '${team}'`);
-    await createConfigmapForTeam(team);
-
-    logger.info(`Creating Secretsfile for team '${team}'`);
-    await createSecretsfileForTeam(team);
-    await createChallenge33SecretForTeam(team);
-  } catch (error) {
-    logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-  try {
-    logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
-    await createChallenge62SecretForTeam(team);
-    await createChallenge62ConfigMapForTeam(team);
-  } catch (error) {
-    logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-  try {
-    logger.info(
-      `Creating Secrets provider for team ${team}, please make sure the csi driver helm is installed and running`
-    );
-    await createAzureSecretsProviderForTeam(team);
-  } catch (error) {
-    logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
 
   try {
-    logger.info(`Creating WrongSecrets Deployment for team '${team}' with Azure`);
-    await createAzureDeploymentForTeam({ team, passcodeHash: hash });
-    await createServiceForTeam(team);
+    logger.info(`Creating independent resources for team '${team}' with Azure`);
+    await Promise.all([
+      createConfigmapForTeam(team),
+      createSecretsfileForTeam(team),
+      createChallenge33SecretForTeam(team),
+      createChallenge62SecretForTeam(team),
+      createChallenge62ConfigMapForTeam(team),
+      createAzureSecretsProviderForTeam(team),
+      createServiceAccountForWebTop(team),
+      createServiceForTeam(team),
+      createDesktopServiceForTeam(team),
+      createNSPsforTeam(team),
+      createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash }),
+    ]);
   } catch (error) {
     logger.error(
-      `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
+      `Error while creating independent resources for ${team}: ${error.message || error}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
-    logger.info(`Creating service account for virtual desktop in Azure '${team}'`);
-    await createServiceAccountForWebTop(team);
-    logger.info(`Created service account for virtual desktopfor team '${team}'`);
+    logger.info(`Creating dependent deployments and role for team '${team}' with Azure`);
+    await Promise.all([
+      createAzureDeploymentForTeam({ team, passcodeHash: hash }),
+      createDesktopDeploymentForTeam({ team, passcodeHash: hash }),
+      createRoleForWebTop(team),
+    ]);
   } catch (error) {
     logger.error(
-      `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
-    );
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating challenge53 Deployment for team '${team}'`);
-    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
-    logger.info(`Created challenge53 Deployment for team '${team}'`);
-  } catch (error) {
-    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating role for virtual desktop in Azure '${team}'`);
-    await createRoleForWebTop(team);
-    logger.info(`Created role for virtual desktopfor team '${team}'`);
-  } catch (error) {
-    logger.error(
-      `Error while creating role for virtual desktop for team ${team}: ${error.message}`
+      `Error while creating dependent deployments or role for team ${team}: ${error.message || error}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
@@ -631,34 +537,11 @@ async function createAzureTeam(req, res) {
   try {
     logger.info(`Creating roleBinding for virtual desktop in Azure '${team}'`);
     await createRoleBindingForWebtop(team);
-    logger.info(`Created roleBinding for virtual desktopfor team '${team}'`);
+    logger.info(`Created roleBinding for virtual desktop for team '${team}'`);
   } catch (error) {
     logger.error(
-      `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
+      `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message || error}`
     );
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating virtualdesktop Deployment for team '${team}'`);
-    await createDesktopDeploymentForTeam({ team, passcodeHash: hash });
-    await createDesktopServiceForTeam(team);
-
-    logger.info(`Created virtualdesktop Deployment for team '${team}'`);
-  } catch (error) {
-    logger.error(
-      `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
-    );
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating network security policies for team '${team}'`);
-    await createNSPsforTeam(team);
-
-    logger.info(`Created network security policies for team  '${team}'`);
-  } catch (error) {
-    logger.error(`Error while network security policies for team ${team}: ${error}`);
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
@@ -676,9 +559,13 @@ async function createAzureTeam(req, res) {
       });
   } catch (error) {
     logger.error(
-      `Error while creating deployment or service for team ${team} on Azure: ${error.message}`
+      `Error while creating deployment or service for team ${team} on Azure: ${error.message || error}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    if (!res.headersSent) {
+      res.status(500).send({ message: 'Failed to Create Instance' });
+    } else {
+      logger.error('Could not send error response because headers were already sent');
+    }
   }
 }
 
@@ -696,99 +583,53 @@ async function createGCPTeam(req, res) {
     logger.error(`Error while creating namespace for ${team}: ${error}`);
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
-  try {
-    logger.info(`Creating Configmap for team '${team}'`);
-    await createConfigmapForTeam(team);
 
-    logger.info(`Creating Secretsfile for team '${team}'`);
-    await createSecretsfileForTeam(team);
-    await createChallenge33SecretForTeam(team);
-  } catch (error) {
-    logger.error(`Error while creating secretsfile or configmap for ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
   try {
-    logger.info(`Creating challenge62 secret and configmap for team '${team}'`);
-    await createChallenge62SecretForTeam(team);
-    await createChallenge62ConfigMapForTeam(team);
+    logger.info(`Creating independent resources for team '${team}' with GCP`);
+    await Promise.all([
+      createConfigmapForTeam(team),
+      createSecretsfileForTeam(team),
+      createChallenge33SecretForTeam(team),
+      createChallenge62SecretForTeam(team),
+      createChallenge62ConfigMapForTeam(team),
+      createGCPSecretsProviderForTeam(team),
+      createServiceAccountForWebTop(team),
+      createServiceForTeam(team),
+      createDesktopServiceForTeam(team),
+      createNSPsforTeam(team),
+      createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash }),
+    ]);
   } catch (error) {
-    logger.error(`Error while creating challenge62 resources for ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-  try {
-    logger.info(
-      `Creating Secrets provider for team ${team}, please make sure the csi driver helm is installed and running`
+    logger.error(
+      `Error while creating independent resources for ${team}: ${error.message || error}`
     );
-    await createGCPSecretsProviderForTeam(team);
-  } catch (error) {
-    logger.error(`Error while creating Secretsprovider for team ${team}: ${error}`);
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
-    logger.info(`IAM service account for team '${team}'`);
+    logger.info(`Configuring GCP IAM service account and workload identity for team '${team}'`);
     await createIAMServiceAccountForTeam(team);
-    logger.info(`Created IAM service account for team '${team}'`);
-  } catch (error) {
-    logger.error(`Error while creating IAM service account for team ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Binding IAM service account to workload for team '${team}'`);
-    await bindIAMServiceAccountToWorkloadForTeam(team);
-    logger.info(`Bound IAM service account to workload for team '${team}'`);
-  } catch (error) {
-    logger.error(`Error while binding IAM service account to workload for team ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Annotating the service account for ${team},`);
-    await patchServiceAccountForTeamForGCP(team);
-  } catch (error) {
-    logger.error(`Error while annotating the service account for  ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating WrongSecrets Deployment for team '${team}' with GCP`);
-    await createGCPDeploymentForTeam({ team, passcodeHash: hash });
-    await createServiceForTeam(team);
+    await Promise.all([
+      bindIAMServiceAccountToWorkloadForTeam(team),
+      patchServiceAccountForTeamForGCP(team),
+    ]);
   } catch (error) {
     logger.error(
-      `Error while creating wrongsecrets deployment or service for team ${team}: ${error.message}`
+      `Error while configuring GCP IAM service account for team ${team}: ${error.message || error}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
   try {
-    logger.info(`Creating service account for virtual desktop in GCP '${team}'`);
-    await createServiceAccountForWebTop(team);
-    logger.info(`Created service account for virtual desktopfor team '${team}'`);
+    logger.info(`Creating dependent deployments and role for team '${team}' with GCP`);
+    await Promise.all([
+      createGCPDeploymentForTeam({ team, passcodeHash: hash }),
+      createDesktopDeploymentForTeam({ team, passcodeHash: hash }),
+      createRoleForWebTop(team),
+    ]);
   } catch (error) {
     logger.error(
-      `Error while creating service account for virtual desktop for team ${team}: ${error.message}`
-    );
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating challenge53 Deployment for team '${team}'`);
-    await createK8sChallenge53DeploymentForTeam({ team, passcodeHash: hash });
-    logger.info(`Created challenge53 Deployment for team '${team}'`);
-  } catch (error) {
-    logger.error(`Error while creating challenge53 deployment for team ${team}: ${error.message}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating role for virtual desktop in GCP '${team}'`);
-    await createRoleForWebTop(team);
-    logger.info(`Created role for virtual desktopfor team '${team}'`);
-  } catch (error) {
-    logger.error(
-      `Error while creating role for virtual desktop for team ${team}: ${error.message}`
+      `Error while creating dependent deployments or role for team ${team}: ${error.message || error}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
@@ -796,36 +637,14 @@ async function createGCPTeam(req, res) {
   try {
     logger.info(`Creating roleBinding for virtual desktop in GCP '${team}'`);
     await createRoleBindingForWebtop(team);
-    logger.info(`Created roleBinding for virtual desktopfor team '${team}'`);
+    logger.info(`Created roleBinding for virtual desktop for team '${team}'`);
   } catch (error) {
     logger.error(
-      `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message}`
+      `Error while creating roleBinding for virtual desktop for team ${team}: ${error.message || error}`
     );
     return res.status(500).send({ message: 'Failed to Create Instance' });
   }
 
-  try {
-    logger.info(`Creating virtualdesktop Deployment for team '${team}'`);
-    await createDesktopDeploymentForTeam({ team, passcodeHash: hash });
-    await createDesktopServiceForTeam(team);
-
-    logger.info(`Created virtualdesktop Deployment for team '${team}'`);
-  } catch (error) {
-    logger.error(
-      `Error while creating Virtualdesktop deployment or service for team ${team}: ${error.message}`
-    );
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
-
-  try {
-    logger.info(`Creating network security policies for team '${team}'`);
-    await createNSPsforTeam(team);
-
-    logger.info(`Created network security policies for team  '${team}'`);
-  } catch (error) {
-    logger.error(`Error while network security policies for team ${team}: ${error}`);
-    return res.status(500).send({ message: 'Failed to Create Instance' });
-  }
   try {
     loginCounter.inc({ type: 'registration', userType: 'user' }, 1);
 
@@ -840,9 +659,13 @@ async function createGCPTeam(req, res) {
       });
   } catch (error) {
     logger.error(
-      `Error while creating deployment or service for team ${team} on GCP: ${error.message}`
+      `Error while creating deployment or service for team ${team} on GCP: ${error.message || error}`
     );
-    res.status(500).send({ message: 'Failed to Create Instance' });
+    if (!res.headersSent) {
+      res.status(500).send({ message: 'Failed to Create Instance' });
+    } else {
+      logger.error('Could not send error response because headers were already sent');
+    }
   }
 }
 
