@@ -120,7 +120,7 @@ proxy.on('proxyRes', (proxyRes, req) => {
       bufferedBody += chunkStr;
     }
     const responseText = responseTail + chunkStr;
-    if (responseText.includes(CORRECT_ANSWER_MARKER)) {
+    if (responseText.includes(CORRECT_ANSWER_MARKER) && !responseText.includes("Your answer is incorrect")) {
       recorded = true;
       const difficulty = extractDifficultyFromBody(bufferedBody, challengeKey);
       recordSolvedChallengeForTeam(teamname, challengeKey, difficulty).catch((error) => {
