@@ -64,16 +64,16 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "21.25.0"
 
-  cluster_name    = var.cluster_name
-  cluster_version = var.cluster_version
+  name               = var.cluster_name
+  kubernetes_version = var.cluster_version
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
 
-  cluster_addons = {
+  addons = {
     aws-ebs-csi-driver = {
       most_recent              = true
-      service_account_role_arn = module.ebs_csi_irsa_role.iam_role_arn
+      service_account_role_arn = module.ebs_csi_irsa_role.arn
       configuration_values = jsonencode({
         defaultStorageClass = {
           enabled = true
@@ -82,53 +82,25 @@ module "eks" {
     }
   }
 
-  cluster_upgrade_policy = {
+  upgrade_policy = {
     support_type = "STANDARD"
   }
 
 
-  cluster_endpoint_private_access = true
-  cluster_endpoint_public_access  = true
+  endpoint_private_access = true
+  endpoint_public_access  = true
 
-  cluster_endpoint_public_access_cidrs = compact(concat(["${data.http.ip.response_body}/32"], var.extra_allowed_ip_ranges))
+  endpoint_public_access_cidrs = compact(concat(["${data.http.ip.response_body}/32"], var.extra_allowed_ip_ranges))
 
   enable_irsa = true
 
   enable_cluster_creator_admin_permissions = true
 
   create_cloudwatch_log_group            = true
-  cluster_enabled_log_types              = ["api", "audit", "authenticator"]
+  enabled_log_types                      = ["api", "audit", "authenticator"]
   cloudwatch_log_group_retention_in_days = 14 #it's a ctf , we don't need unnecessary costs!
 
   # apply when available: iam_role_permissions_boundary = "arn:aws:iam::${local.account_id}:policy/service-user-creation-permission-boundary"
-  eks_managed_node_group_defaults = {
-    instance_types = ["m5a.xlarge"]
-    block_device_mappings = [
-      {
-        device_name = "/dev/xvda"
-        ebs = {
-          volume_size           = 200
-          volume_type           = "gp3"
-          iops                  = 3000
-          throughput            = 150
-          delete_on_termination = true
-        }
-      }
-    ]
-    metadata_options = {
-      http_tokens = "required",
-    }
-
-    iam_role_additional_policies = {
-      AmazonEKSWorkerNodePolicy : "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
-      AmazonEKS_CNI_Policy : "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
-      AmazonEC2ContainerRegistryReadOnly : "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
-      AmazonSSMManagedInstanceCore : "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
-      AmazonEKSVPCResourceController : "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController",
-      AmazonEBSCSIDriverPolicy : "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
-    }
-  }
-
   eks_managed_node_groups = {
     bottlerocket_default = {
       name          = "wrongsecrets-ctf"
@@ -139,6 +111,32 @@ module "eks" {
 
       ami_type = "BOTTLEROCKET_x86_64"
       platform = "bottlerocket"
+
+      instance_types = ["m5a.xlarge"]
+      block_device_mappings = {
+        xvda = {
+          device_name = "/dev/xvda"
+          ebs = {
+            volume_size           = 200
+            volume_type           = "gp3"
+            iops                  = 3000
+            throughput            = 150
+            delete_on_termination = true
+          }
+        }
+      }
+      metadata_options = {
+        http_tokens = "required",
+      }
+
+      iam_role_additional_policies = {
+        AmazonEKSWorkerNodePolicy : "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+        AmazonEKS_CNI_Policy : "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy",
+        AmazonEC2ContainerRegistryReadOnly : "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+        AmazonSSMManagedInstanceCore : "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore",
+        AmazonEKSVPCResourceController : "arn:aws:iam::aws:policy/AmazonEKSVPCResourceController",
+        AmazonEBSCSIDriverPolicy : "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+      }
     }
   }
 
@@ -163,13 +161,14 @@ module "eks" {
 
 # Cluster Autoscaler IRSA
 module "cluster_autoscaler_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "~> 6.0"
 
 
-  role_name                        = "wrongsecrets-cluster-autoscaler"
+  name                             = "wrongsecrets-cluster-autoscaler"
+  use_name_prefix                  = false
   attach_cluster_autoscaler_policy = true
-  cluster_autoscaler_cluster_ids   = [module.eks.cluster_name]
+  cluster_autoscaler_cluster_names = [module.eks.cluster_name]
 
   oidc_providers = {
     cluster = {
@@ -180,10 +179,11 @@ module "cluster_autoscaler_irsa_role" {
 }
 
 module "ebs_csi_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "~> 6.0"
 
-  role_name             = "wrongsecrets-ebs-csi"
+  name                  = "wrongsecrets-ebs-csi"
+  use_name_prefix       = false
   attach_ebs_csi_policy = true
 
   oidc_providers = {
@@ -195,10 +195,11 @@ module "ebs_csi_irsa_role" {
 }
 
 module "load_balancer_controller_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "~> 6.0"
 
-  role_name                              = "wrongsecrets-load-balancer-controller"
+  name                                   = "wrongsecrets-load-balancer-controller"
+  use_name_prefix                        = false
   attach_load_balancer_controller_policy = true
 
   oidc_providers = {
@@ -210,11 +211,13 @@ module "load_balancer_controller_irsa_role" {
 }
 
 module "external_dns_irsa_role" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "~> 6.0"
 
-  role_name                  = "external-dns"
-  attach_external_dns_policy = true
+  name                          = "external-dns"
+  use_name_prefix               = false
+  attach_external_dns_policy    = true
+  external_dns_hosted_zone_arns = [var.hosted_zone_id != "" ? "arn:aws:route53:::hostedzone/${var.hosted_zone_id}" : "arn:aws:route53:::hostedzone/*"]
 
   oidc_providers = {
     main = {

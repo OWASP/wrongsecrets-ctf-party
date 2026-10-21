@@ -175,7 +175,7 @@ The documentation below is auto-generated to give insight on what's created via 
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [aws_iam_access_key.state_user_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_access_key) | resource |
 | [aws_iam_policy.secret_deny](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
 | [aws_iam_policy.secret_manager](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_policy) | resource |
@@ -211,10 +211,10 @@ The documentation below is auto-generated to give insight on what's created via 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_balancer_domain_name"></a> [balancer\_domain\_name](#input\_balancer\_domain\_name) | The domain name to use | `string` | `""` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The EKS cluster name | `string` | `"wrongsecrets-exercise-cluster"` | no |
-| <a name="input_cluster_version"></a> [cluster\_version](#input\_cluster\_version) | The EKS cluster version to use | `string` | `"1.30"` | no |
+| <a name="input_cluster_version"></a> [cluster\_version](#input\_cluster\_version) | The EKS cluster version to use | `string` | `"1.36"` | no |
 | <a name="input_ctfd_domain_name"></a> [ctfd\_domain\_name](#input\_ctfd\_domain\_name) | The domain name to use | `string` | `""` | no |
 | <a name="input_extra_allowed_ip_ranges"></a> [extra\_allowed\_ip\_ranges](#input\_extra\_allowed\_ip\_ranges) | Allowed IP ranges in addition to creator IP | `list(string)` | `[]` | no |
 | <a name="input_hosted_zone_id"></a> [hosted\_zone\_id](#input\_hosted\_zone\_id) | The ID of the Route53 Hosted Zone to use | `string` | `""` | no |
@@ -224,7 +224,7 @@ The documentation below is auto-generated to give insight on what's created via 
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_balancer_acm_cert_arn"></a> [balancer\_acm\_cert\_arn](#output\_balancer\_acm\_cert\_arn) | Balancer ACM certificate ARN |
 | <a name="output_balancer_domain_name"></a> [balancer\_domain\_name](#output\_balancer\_domain\_name) | Balancer domain name |
 | <a name="output_cluster_autoscaler_role"></a> [cluster\_autoscaler\_role](#output\_cluster\_autoscaler\_role) | Cluster autoscaler role |
@@ -289,7 +289,7 @@ The documentation below is auto-generated to give insight on what's created via 
 |------|-------------|------|---------|:--------:|
 | <a name="input_balancer_domain_name"></a> [balancer\_domain\_name](#input\_balancer\_domain\_name) | The domain name to use | `string` | `""` | no |
 | <a name="input_cluster_name"></a> [cluster\_name](#input\_cluster\_name) | The EKS cluster name | `string` | `"wrongsecrets-exercise-cluster"` | no |
-| <a name="input_cluster_version"></a> [cluster\_version](#input\_cluster\_version) | The EKS cluster version to use | `string` | `"1.30"` | no |
+| <a name="input_cluster_version"></a> [cluster\_version](#input\_cluster\_version) | The EKS cluster version to use | `string` | `"1.36"` | no |
 | <a name="input_ctfd_domain_name"></a> [ctfd\_domain\_name](#input\_ctfd\_domain\_name) | The domain name to use | `string` | `""` | no |
 | <a name="input_extra_allowed_ip_ranges"></a> [extra\_allowed\_ip\_ranges](#input\_extra\_allowed\_ip\_ranges) | Allowed IP ranges in addition to creator IP | `list(string)` | `[]` | no |
 | <a name="input_hosted_zone_id"></a> [hosted\_zone\_id](#input\_hosted\_zone\_id) | The ID of the Route53 Hosted Zone to use | `string` | `""` | no |

@@ -11,7 +11,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "--- Starting Minikube ---"
-minikube start --cpus=2 --memory=8000MB --driver=docker --network-plugin=cni --cni=calico --kubernetes-version=1.32.0
+minikube start --cpus=2 --memory=8000MB --driver=docker --network-plugin=cni --cni=calico --kubernetes-version=1.36.0
 
 echo "--- Updating Helm Repositories ---"
 helm repo update
