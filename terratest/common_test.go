@@ -101,6 +101,9 @@ func runDeployScript(t *testing.T, c cloud, appPassword string) {
 		"APP_PASSWORD="+appPassword,
 		"CREATE_TEAM_HMAC="+random.UniqueId()+random.UniqueId(),
 		"COOKIE_PARSER_SECRET="+random.UniqueId()+random.UniqueId(),
+		// Public charts must be pulled anonymously: stale ghcr.io logins in ~/.docker make the pull fail with 403.
+		"DOCKER_CONFIG="+t.TempDir(),
+		"HELM_REGISTRY_CONFIG="+filepath.Join(t.TempDir(), "config.json"),
 	)
 	run(t, env, c.dir, "./"+c.deployScript)
 }

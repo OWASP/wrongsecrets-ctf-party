@@ -71,6 +71,18 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
   addons = {
+    # The module no longer bootstraps the default addons, so nodes need these to become healthy.
+    vpc-cni = {
+      most_recent    = true
+      before_compute = true
+    }
+    kube-proxy = {
+      most_recent    = true
+      before_compute = true
+    }
+    coredns = {
+      most_recent = true
+    }
     aws-ebs-csi-driver = {
       most_recent              = true
       service_account_role_arn = module.ebs_csi_irsa_role.arn
