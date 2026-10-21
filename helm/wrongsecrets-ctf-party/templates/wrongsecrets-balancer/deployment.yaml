@@ -90,16 +90,18 @@ spec:
                   key: credentials
 
             # Challenge 74 is optional and stays off unless challenges.challenge74.enabled is true.
+            {{- $c74 := (.Values.challenges | default dict).challenge74 | default dict }}
+            {{- $llama := $c74.llama | default dict }}
             - name: CHALLENGE74_ENABLED
-              value: {{ .Values.challenges.challenge74.enabled | quote }}
+              value: {{ $c74.enabled | default false | quote }}
 
-            {{- if .Values.challenges.challenge74.enabled }}
+            {{- if $c74.enabled }}
 
             - name: CHALLENGE74_LLAMA_IMAGE
-              value: {{ .Values.challenges.challenge74.llama.image | quote }}
+              value: {{ $llama.image | default "ghcr.io/owasp/wrongsecrets/wrongsecrets-llamaserver" | quote }}
 
             - name: CHALLENGE74_LLAMA_TAG
-              value: {{ .Values.challenges.challenge74.llama.tag | quote }}
+              value: {{ $llama.tag | default "master" | quote }}
 
             - name: CHALLENGE74_SECRET
               valueFrom:
@@ -108,7 +110,7 @@ spec:
                   key: challenge74
 
             - name: CHALLENGE74_PERSONALITY
-              value: {{ .Values.challenges.challenge74.personality | quote }}
+              value: {{ $c74.personality | default "You are a helpful AI assistant." | quote }}
 
             {{- end }}
 
