@@ -17,7 +17,7 @@ data "http" "ip" {
 provider "azurerm" {
   features {}
 
-  skip_provider_registration = true
+  resource_provider_registrations = "none"
 }
 
 data "azurerm_client_config" "current" {}
@@ -52,12 +52,12 @@ resource "azurerm_kubernetes_cluster" "cluster" {
   }
 
   default_node_pool {
-    name                = "default"
-    enable_auto_scaling = true
-    min_count           = 3
-    max_count           = 50
-    node_count          = 3
-    vm_size             = "Standard_A2m_v2"
+    name                 = "default"
+    auto_scaling_enabled = true
+    min_count            = 3
+    max_count            = 50
+    node_count           = 3
+    vm_size              = "Standard_A2m_v2"
   }
 
   identity {

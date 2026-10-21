@@ -1,11 +1,10 @@
 terraform {
   # For shared state:
-  # Set the resource group in the backend configuration below, then uncomment and apply!
-  # Note that you probably already create a resource group. Don't forget to set that correctly in this file.
-  backend "gcs" {
-    bucket = "tfstate-wrongsecrets-93ac22f5"
-    prefix = "terraform/state"
-  }
+  # Apply shared-state first, set the bucket name it outputs in the backend configuration below, then uncomment and apply!
+  # backend "gcs" {
+  #   bucket = "<state bucket name>"
+  #   prefix = "terraform/state"
+  # }
 }
 
 provider "google" {

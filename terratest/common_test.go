@@ -52,6 +52,7 @@ func (c cloud) sharedStackOptions(t *testing.T) *terraform.Options {
 		TerraformDir: filepath.Join(c.dir, "shared-state"),
 		Vars:         c.sharedVars,
 		VarFiles:     c.sharedFiles,
+		Reconfigure:  true,
 	})
 }
 
@@ -69,6 +70,7 @@ func (c cloud) mainStackOptions(t *testing.T, sharedOptions *terraform.Options) 
 		TerraformDir: c.dir,
 		Vars:         vars,
 		VarFiles:     c.varFiles,
+		Reconfigure:  true,
 	})
 }
 

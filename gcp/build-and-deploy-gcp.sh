@@ -37,6 +37,13 @@ export GCP_PROJECT=$(gcloud config list --format 'value(core.project)' 2>/dev/nu
 
 export GCP_BUCKET_NAME="$(terraform -chdir=./shared-state output -raw bucket)"
 
+GCP_CLUSTER_NAME="$(terraform output -raw kubernetes_cluster_name)"
+GCP_REGION="$(terraform output -raw region)"
+
+echo "Fetching GKE credentials for ${GCP_CLUSTER_NAME}"
+export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/wrongsecrets}"
+gcloud container clusters get-credentials "${GCP_CLUSTER_NAME}" --project "${GCP_PROJECT}" --region "${GCP_REGION}" || exit 1
+
 # Patch the default namespace to use the secrets store CSI driver
 
 echo "Setting up workspace PSA to restricted for default"

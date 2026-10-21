@@ -7,6 +7,7 @@ var gcpCloud = cloud{
 	dir:          "../gcp",
 	deployScript: "build-and-deploy-gcp.sh",
 	expectedEnv:  "gcp",
+	kubeconfig:   "~/.kube/wrongsecrets",
 	varFiles:     []string{"terraform.tfvars"},
 	sharedFiles:  []string{"../terraform.tfvars"},
 }

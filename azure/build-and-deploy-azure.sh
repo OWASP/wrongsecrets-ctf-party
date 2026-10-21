@@ -96,6 +96,14 @@ fi
 # Preparing calico via Helm
 echo "preparing calico via Helm"
 helm repo add projectcalico https://docs.projectcalico.org/charts
+helm upgrade --install calico projectcalico/tigera-operator \
+  --set installation.enabled=false --set apiServer.enabled=false
+echo "waiting for the Calico Installation CRD before creating the Installation resource"
+for i in $(seq 1 30); do
+  kubectl get crd installations.operator.tigera.io &>/dev/null && break
+  sleep 5
+done
+kubectl wait --for=condition=Established crd/installations.operator.tigera.io --timeout=2m
 helm upgrade --install calico projectcalico/tigera-operator
 
 
