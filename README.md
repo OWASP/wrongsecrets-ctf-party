@@ -41,7 +41,7 @@ To uninstall the chart:
     helm delete my-wrongsecrets-ctf-party
 # wrongsecrets-ctf-party
 
-![Version: 1.14.1](https://img.shields.io/badge/Version-1.14.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.14.1](https://img.shields.io/badge/AppVersion-1.14.1-informational?style=flat-square)
+![Version: 1.14.2](https://img.shields.io/badge/Version-1.14.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 1.14.2](https://img.shields.io/badge/AppVersion-1.14.2-informational?style=flat-square)
 
 Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 
@@ -96,13 +96,12 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | balancer.env.K8S_ENV | string | `"k8s"` |  |
 | balancer.env.REACT_APP_ACCESS_PASSWORD | string | `""` |  |
 | balancer.env.REACT_APP_AZ_BLOB_URL | string | `"az://funstuff"` |  |
-| balancer.env.REACT_APP_CREATE_TEAM_HMAC_KEY | string | `""` | Generated automatically when left empty |
+| balancer.env.REACT_APP_CREATE_TEAM_HMAC_KEY | string | `"hardcodedkey"` |  |
 | balancer.env.REACT_APP_CTFD_URL | string | `"https://ctfd.io"` |  |
 | balancer.env.REACT_APP_GCP_BUCKET_URL | string | `"gs://funstuff"` |  |
 | balancer.env.REACT_APP_HEROKU_WRONGSECRETS_URL | string | `"https://wrongsecrets-ctf.herokuapp.com"` |  |
 | balancer.env.REACT_APP_MOVING_GIF_LOGO | string | `"https://i.gifer.com/9kGQ.gif"` |  |
 | balancer.env.REACT_APP_S3_BUCKET_URL | string | `"s3://funstuff"` |  |
-| balancer.imagePullPolicy | string | `""` | Optional override for the balancer image pull policy. Leave empty to use the global imagePullPolicy value. |
 | balancer.livenessProbe | object | `{"httpGet":{"path":"/balancer/","port":"http"}}` | livenessProbe: Checks if the balancer pod is still alive |
 | balancer.podSecurityContext.enabled | bool | `true` | If true, sets the securityContext on the created pods. This is required for the podSecurityPolicy to work |
 | balancer.podSecurityContext.fsGroup | int | `2000` |  |
@@ -119,7 +118,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | balancer.service.loadBalancerSourceRanges | string | `nil` | list of IP CIDRs allowed access to lb (if supported) |
 | balancer.service.type | string | `"ClusterIP"` | Kubernetes service type |
 | balancer.skipOwnerReference | bool | `false` | If set to true this skips setting ownerReferences on the teams wrongsecrets Deployment and Services. This lets MultiJuicer run in older kubernetes cluster which don't support the reference type or the app/v1 deployment type |
-| balancer.tag | string | `"1.14.0RC2-cloud"` |  |
+| balancer.tag | string | `"1.14.2-cloud"` |  |
 | balancer.tolerations | list | `[]` | Optional Configure kubernetes toleration for the created wrongsecrets instances (see: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) |
 | balancer.volumeMounts[0] | object | `{"mountPath":"/home/app/config/","name":"config-volume"}` | If true, creates a volumeMount for the created pods. This is required for the podSecurityPolicy to work |
 | balancer.volumes[0] | object | `{"configMap":{"name":"wrongsecrets-balancer-config"},"name":"config-volume"}` | If true, creates a volume for the created pods. This is required for the podSecurityPolicy to work |
@@ -192,7 +191,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | virtualdesktop.securityContext.readOnlyRootFilesystem | bool | `true` |  |
 | virtualdesktop.securityContext.runAsNonRoot | bool | `true` |  |
 | virtualdesktop.securityContext.seccompProfile.type | string | `"RuntimeDefault"` |  |
-| virtualdesktop.tag | string | `"1.14.1"` |  |
+| virtualdesktop.tag | string | `"1.14.2"` |  |
 | virtualdesktop.tolerations | list | `[]` |  |
 | wrongsecrets.affinity | object | `{}` | Optional Configure kubernetes scheduling affinity for the created Wrongsecrets instances (see: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) |
 | wrongsecrets.config | string | See values.yaml for full details | Specify a custom Wrongsecrets config.yaml. See the Wrongsecrets Docs for any needed ENVs: https://github.com/OWASP/wrongsecrets |
@@ -205,7 +204,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | wrongsecrets.resources | object | `{"requests":{"cpu":"256Mi","memory":"300Mi"}}` | Optional resources definitions to set for each Wrongsecrets instance |
 | wrongsecrets.runtimeClassName | string | `nil` | Optional Can be used to configure the runtime class for the Wrongsecrets instances pods to add an additional layer of isolation to reduce the impact of potential container escapes. (see: https://kubernetes.io/docs/concepts/containers/runtime-class/) |
 | wrongsecrets.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Optional securityContext definitions to set for each Wrongsecrets instance |
-| wrongsecrets.tag | string | `"1.14.1-no-vault"` |  |
+| wrongsecrets.tag | string | `"1.14.2-no-vault"` |  |
 | wrongsecrets.tolerations | list | `[]` | Optional Configure kubernetes toleration for the created Wrongsecrets instances (see: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) |
 | wrongsecrets.volumes | list | `[]` | Optional Volumes to set for each Wrongsecrets instance (see: https://kubernetes.io/docs/concepts/storage/volumes/) |
 | wrongsecretsCleanup.affinity | object | `{}` | Optional Configure kubernetes scheduling affinity for the wrongsecretsCleanup Job(see: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) |
@@ -220,7 +219,6 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | wrongsecretsCleanup.env.MAX_INACTIVE_DURATION | string | `"2d"` |  |
 | wrongsecretsCleanup.env.SHOULD_DELETE | bool | `false` |  |
 | wrongsecretsCleanup.failedJobsHistoryLimit | int | `1` |  |
-| wrongsecretsCleanup.imagePullPolicy | string | `""` | Optional override for the cleanup job image pull policy. Leave empty to use the global imagePullPolicy value. |
 | wrongsecretsCleanup.podSecurityContext.enabled | bool | `true` | If true, sets the securityContext on the created pods. This is required for the podSecurityPolicy to work |
 | wrongsecretsCleanup.podSecurityContext.fsGroup | int | `2000` |  |
 | wrongsecretsCleanup.podSecurityContext.runAsGroup | int | `3000` |  |
@@ -229,7 +227,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | wrongsecretsCleanup.resources.limits.memory | string | `"256Mi"` |  |
 | wrongsecretsCleanup.resources.requests.memory | string | `"256Mi"` |  |
 | wrongsecretsCleanup.successfulJobsHistoryLimit | int | `1` |  |
-| wrongsecretsCleanup.tag | float | `0.5` |  |
+| wrongsecretsCleanup.tag | string | `"1.14.2"` |  |
 | wrongsecretsCleanup.tolerations | list | `[]` | Optional Configure kubernetes toleration for the wrongsecretsCleanup Job (see: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) |
 
 ----------------------------------------------
