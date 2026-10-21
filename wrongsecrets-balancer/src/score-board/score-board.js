@@ -154,7 +154,7 @@ async function getTopTeams(req, res) {
 
       let score = 0;
       for (const { difficulty } of scoredChallenges) {
-        score += (difficulty || 1) * 10;
+        score += (difficulty || 1) * (100 + (difficulty - 1) * 25);
       }
 
       return {
