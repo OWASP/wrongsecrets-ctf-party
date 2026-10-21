@@ -37,6 +37,13 @@ export GCP_PROJECT=$(gcloud config list --format 'value(core.project)' 2>/dev/nu
 
 export GCP_BUCKET_NAME="$(terraform -chdir=./shared-state output -raw bucket)"
 
+GCP_CLUSTER_NAME="$(terraform output -raw kubernetes_cluster_name)"
+GCP_REGION="$(terraform output -raw region)"
+
+echo "Fetching GKE credentials for ${GCP_CLUSTER_NAME}"
+export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/wrongsecrets}"
+gcloud container clusters get-credentials "${GCP_CLUSTER_NAME}" --project "${GCP_PROJECT}" --region "${GCP_REGION}" || exit 1
+
 # Patch the default namespace to use the secrets store CSI driver
 
 echo "Setting up workspace PSA to restricted for default"
@@ -104,7 +111,7 @@ echo "You can find the app password in password.txt"
 
 helm upgrade --install wrongsecrets ../helm/wrongsecrets-ctf-party \
   --set="balancer.env.K8S_ENV=gcp" \
-  --set="balancer.tag=1.14.0RC2-cloud" \
+  --set="balancer.tag=1.14.2-cloud" \
   --set="balancer.env.REACT_APP_GCP_BUCKET_URL=https://console.cloud.google.com/storage/browser/${GCP_BUCKET_NAME}" \
   --set="balancer.env.REACT_APP_ACCESS_PASSWORD=${APP_PASSWORD}" \
   --set="balancer.env.REACT_APP_CREATE_TEAM_HMAC_KEY=${CREATE_TEAM_HMAC}" \
@@ -122,7 +129,7 @@ export HELM_EXPERIMENTAL_OCI=1
 kubectl create namespace ctfd
 
 # Double base64 encoding to prevent weird character errors in ctfd
-helm upgrade --install ctfd -n ctfd oci://ghcr.io/bman46/ctfd/ctfd --version v0.9.3 \
+helm upgrade --install ctfd -n ctfd "${CTFD_CHART:-oci://ghcr.io/bman46/ctfd/ctfd}" --version v0.9.3 \
   --values ./k8s/ctfd-values.yaml \
   --set="redis.auth.password=$(openssl rand -base64 24 | base64)" \
   --set="mariadb.auth.rootPassword=$(openssl rand -base64 24 | base64)" \

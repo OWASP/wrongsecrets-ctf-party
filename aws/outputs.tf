@@ -36,32 +36,32 @@ output "cluster_name" {
 
 output "ebs_role" {
   description = "EBS CSI driver role"
-  value       = module.ebs_csi_irsa_role.iam_role_name
+  value       = module.ebs_csi_irsa_role.name
 }
 
 output "ebs_role_arn" {
   description = "EBS CSI driver role"
-  value       = module.ebs_csi_irsa_role.iam_role_arn
+  value       = module.ebs_csi_irsa_role.arn
 }
 
 output "cluster_autoscaler_role" {
   description = "Cluster autoscaler role"
-  value       = module.cluster_autoscaler_irsa_role.iam_role_name
+  value       = module.cluster_autoscaler_irsa_role.name
 }
 
 output "cluster_autoscaler_role_arn" {
   description = "Cluster autoscaler role arn"
-  value       = module.cluster_autoscaler_irsa_role.iam_role_arn
+  value       = module.cluster_autoscaler_irsa_role.arn
 }
 
 output "load_balancer_controller_role" {
   description = "Load balancer controller role"
-  value       = module.load_balancer_controller_irsa_role.iam_role_name
+  value       = module.load_balancer_controller_irsa_role.name
 }
 
 output "load_balancer_controller_role_arn" {
   description = "Load balancer controller role arn"
-  value       = module.load_balancer_controller_irsa_role.iam_role_arn
+  value       = module.load_balancer_controller_irsa_role.arn
 }
 
 output "state_bucket_name" {
@@ -91,5 +91,5 @@ output "ctfd_domain_name" {
 
 output "external_dns_role_arn" {
   description = "External DNS role"
-  value       = module.external_dns_irsa_role.iam_role_arn
+  value       = module.external_dns_irsa_role.arn
 }

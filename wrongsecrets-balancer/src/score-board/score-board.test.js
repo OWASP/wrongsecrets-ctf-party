@@ -36,7 +36,7 @@ describe('score-board getTopTeams', () => {
             labels: { team: 'team-bronze' },
             annotations: {
               'wrongsecrets-ctf-party/challenges': JSON.stringify([
-                { key: 'challenge0' }, // difficulty 1 -> 10 pts
+                { key: 'challenge0' }, // difficulty 1 -> 100 pts
               ]),
             },
           },
@@ -46,8 +46,8 @@ describe('score-board getTopTeams', () => {
             labels: { team: 'team-gold' },
             annotations: {
               'wrongsecrets-ctf-party/challenges': JSON.stringify([
-                { key: 'challenge7' }, // difficulty 4 -> 40 pts
-                { key: 'challenge18' }, // difficulty 5 -> 50 pts
+                { key: 'challenge7' }, // difficulty 4 -> 400 pts
+                { key: 'challenge18' }, // difficulty 5 -> 500 pts
               ]),
             },
           },
@@ -62,9 +62,9 @@ describe('score-board getTopTeams', () => {
     expect(response.totalTeams).toBe(2);
     expect(response.teams).toHaveLength(2);
     expect(response.teams[0].name).toBe('team-gold');
-    expect(response.teams[0].score).toBe(90);
+    expect(response.teams[0].score).toBe(1700);
     expect(response.teams[1].name).toBe('team-bronze');
-    expect(response.teams[1].score).toBe(10);
+    expect(response.teams[1].score).toBe(100);
   });
 
   test('handles legacy instances.body.items structure correctly', async () => {
@@ -76,7 +76,7 @@ describe('score-board getTopTeams', () => {
               labels: { team: 'team-legacy' },
               annotations: {
                 'wrongsecrets-ctf-party/challenges': JSON.stringify([
-                  { key: 'challenge1' }, // difficulty 1 -> 10 pts
+                  { key: 'challenge1' }, // difficulty 1 -> 100 pts
                 ]),
               },
             },
@@ -90,7 +90,7 @@ describe('score-board getTopTeams', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     const response = res.send.mock.calls[0][0];
     expect(response.totalTeams).toBe(1);
-    expect(response.teams[0].score).toBe(10);
+    expect(response.teams[0].score).toBe(100);
   });
 
   test('does not yield NaN when challenges exceed known difficulty map', async () => {
@@ -113,7 +113,7 @@ describe('score-board getTopTeams', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     const response = res.send.mock.calls[0][0];
-    expect(response.teams[0].score).toBe(10);
+    expect(response.teams[0].score).toBe(100);
     expect(Number.isNaN(response.teams[0].score)).toBe(false);
   });
 
@@ -187,7 +187,7 @@ describe('score-board getTopTeams', () => {
     expect(response.totalTeams).toBe(1);
     expect(response.teams).toHaveLength(1);
     expect(response.teams[0].name).toBe('team-omega');
-    expect(response.teams[0].score).toBe(10);
+    expect(response.teams[0].score).toBe(100);
   });
 
   test('GET /balancer/score-board/top returns scoreboard payload through Express router', async () => {
@@ -212,7 +212,7 @@ describe('score-board getTopTeams', () => {
 
     expect(response.body.totalTeams).toBe(1);
     expect(response.body.teams[0].name).toBe('team-routed');
-    expect(response.body.teams[0].score).toBe(10);
+    expect(response.body.teams[0].score).toBe(100);
   });
 
   test('uses difficulty stored directly on solved challenge progress object', async () => {
@@ -235,7 +235,7 @@ describe('score-board getTopTeams', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     const response = res.send.mock.calls[0][0];
-    expect(response.teams[0].score).toBe(50);
+    expect(response.teams[0].score).toBe(1000);
   });
 
   test('caches scoreboard response within TTL and clears on invalidateScoreboardCache', async () => {
@@ -280,9 +280,9 @@ describe('score-board getTopTeams', () => {
             labels: { team: 'team-duplicate-test' },
             annotations: {
               'wrongsecrets-ctf-party/challenges': JSON.stringify([
-                { key: 'challenge0' }, // diff 1 -> 10 pts
+                { key: 'challenge0' }, // diff 1 -> 100 pts
                 { key: 'challenge0' }, // duplicate solve of challenge0
-                { key: 'challenge1' }, // diff 1 -> 10 pts
+                { key: 'challenge1' }, // diff 1 -> 100 pts
                 { key: 'challenge0' }, // another duplicate
               ]),
             },
@@ -296,7 +296,7 @@ describe('score-board getTopTeams', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     const response = res.send.mock.calls[0][0];
     expect(response.teams).toHaveLength(1);
-    expect(response.teams[0].score).toBe(20); // 10 + 10 (duplicates ignored)
+    expect(response.teams[0].score).toBe(200); // 100 + 100 (duplicates ignored)
     expect(response.teams[0].challenges).toHaveLength(2);
     expect(response.teams[0].challenges.map((c) => c.key)).toEqual(['challenge0', 'challenge1']);
   });
@@ -326,7 +326,7 @@ describe('score-board getTopTeams', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     const response = res.send.mock.calls[0][0];
-    expect(response.teams[0].score).toBe(10); // Enforced to authoritative difficulty (1 * 10 = 10)
+    expect(response.teams[0].score).toBe(100); // Enforced to authoritative difficulty (1 * 100 = 100)
     expect(response.teams[0].challenges[0]).toEqual({
       key: 'challenge0',
       difficulty: 1,

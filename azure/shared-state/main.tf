@@ -14,7 +14,7 @@ terraform {
 
 provider "azurerm" {
   features {}
-  skip_provider_registration = true
+  resource_provider_registrations = "none"
 }
 
 # If you're using an existing resource group, modify this part. That'll definitely be the case if you're using shared state!

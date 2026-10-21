@@ -90,17 +90,26 @@ helm list --namespace kube-system | grep 'csi-secrets-store' &>/dev/null
 if [ $? == 0 ]; then
   echo "CSI driver is already installed"
 else
-  helm upgrade --install -n kube-system csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --set enableSecretRotation=true --set rotationPollInterval=60s
+  helm upgrade --install -n kube-system csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --set enableSecretRotation=true --set rotationPollInterval=60s \
+    --set 'tokenRequests[0].audience=sts.amazonaws.com'
 fi
 
 echo "Patching default namespace"
 kubectl apply -f k8s/workspace-psa.yml
 
 echo "Install ACSP"
-kubectl apply -f https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/main/deployment/aws-provider-installer.yaml
+kubectl apply -f https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/${ACSP_VERSION:-3.1.4}/deployment/aws-provider-installer.yaml
 
 echo "preparing calico via Helm"
 helm repo add projectcalico https://docs.projectcalico.org/charts
+helm upgrade --install calico projectcalico/tigera-operator --version v3.28.2 \
+  --set installation.enabled=false --set apiServer.enabled=false
+echo "waiting for the Calico Installation CRD before creating the Installation resource"
+for i in $(seq 1 30); do
+  kubectl get crd installations.operator.tigera.io &>/dev/null && break
+  sleep 5
+done
+kubectl wait --for=condition=Established crd/installations.operator.tigera.io --timeout=2m
 helm upgrade --install calico projectcalico/tigera-operator --version v3.28.2
 
 echo "Generate secrets manager challenge secret 2"
@@ -140,7 +149,7 @@ echo "App password is ${APP_PASSWORD}"
 echo "executing helm install of wrongsecrets"
 helm upgrade --install wrongsecrets ../helm/wrongsecrets-ctf-party \
   --set="balancer.env.K8S_ENV=aws" \
-  --set="balancer.tag=1.14.0RC2" \
+  --set="balancer.tag=1.14.2-cloud" \
   --set="balancer.env.IRSA_ROLE=${IRSA_ROLE_ARN}" \
   --set="balancer.env.REACT_APP_ACCESS_PASSWORD=${APP_PASSWORD}" \
   --set="balancer.env.REACT_APP_S3_BUCKET_URL=s3://${STATE_BUCKET}" \
@@ -151,7 +160,7 @@ helm upgrade --install wrongsecrets ../helm/wrongsecrets-ctf-party \
 echo "Installing CTFd"
 
 # Double base64 encoding to prevent weird character errors in ctfd
-helm upgrade --install ctfd -n ctfd oci://ghcr.io/bman46/ctfd/ctfd --create-namespace --version v0.9.3\
+helm upgrade --install ctfd -n ctfd "${CTFD_CHART:-oci://ghcr.io/bman46/ctfd/ctfd}" --create-namespace --version v0.9.3\
   --set="redis.auth.password=$(openssl rand -base64 24 | base64)" \
   --set="mariadb.auth.rootPassword=$(openssl rand -base64 24 | base64)" \
   --set="mariadb.auth.password=$(openssl rand -base64 24 | base64)" \

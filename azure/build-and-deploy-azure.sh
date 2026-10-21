@@ -96,6 +96,14 @@ fi
 # Preparing calico via Helm
 echo "preparing calico via Helm"
 helm repo add projectcalico https://docs.projectcalico.org/charts
+helm upgrade --install calico projectcalico/tigera-operator \
+  --set installation.enabled=false --set apiServer.enabled=false
+echo "waiting for the Calico Installation CRD before creating the Installation resource"
+for i in $(seq 1 30); do
+  kubectl get crd installations.operator.tigera.io &>/dev/null && break
+  sleep 5
+done
+kubectl wait --for=condition=Established crd/installations.operator.tigera.io --timeout=2m
 helm upgrade --install calico projectcalico/tigera-operator
 
 
@@ -153,7 +161,7 @@ echo "You can find the app password in password.txt"
 
 helm upgrade --install wrongsecrets ../helm/wrongsecrets-ctf-party \
   --set="balancer.env.K8S_ENV=azure" \
-  --set="balancer.tag=1.14.0RC2-cloud" \
+  --set="balancer.tag=1.14.2-cloud" \
   --set="balancer.env.REACT_APP_AZ_BLOB_URL=https://${AZ_STORAGE_ACCOUNT}.blob.core.windows.net/tfstate" \
   --set="balancer.env.REACT_APP_ACCESS_PASSWORD=${APP_PASSWORD}" \
   --set="balancer.env.REACT_APP_CREATE_TEAM_HMAC_KEY=${CREATE_TEAM_HMAC}" \
@@ -170,7 +178,7 @@ export HELM_EXPERIMENTAL_OCI=1
 kubectl create namespace ctfd
 
 # Double base64 encoding to prevent weird character errors in ctfd
-helm upgrade --install ctfd -n ctfd oci://ghcr.io/bman46/ctfd/ctfd --version v0.9.3 \
+helm upgrade --install ctfd -n ctfd "${CTFD_CHART:-oci://ghcr.io/bman46/ctfd/ctfd}" --version v0.9.3 \
   --values ./k8s/ctfd-values.yaml \
   --set="redis.auth.password=$(openssl rand -base64 24 | base64)" \
   --set="mariadb.auth.rootPassword=$(openssl rand -base64 24 | base64)" \

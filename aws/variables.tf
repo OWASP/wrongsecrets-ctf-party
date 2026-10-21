@@ -24,7 +24,7 @@ variable "hosted_zone_id" {
 variable "cluster_version" {
   description = "The EKS cluster version to use"
   type        = string
-  default     = "1.30"
+  default     = "1.36"
 }
 
 variable "cluster_name" {
