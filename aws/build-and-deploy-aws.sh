@@ -90,14 +90,15 @@ helm list --namespace kube-system | grep 'csi-secrets-store' &>/dev/null
 if [ $? == 0 ]; then
   echo "CSI driver is already installed"
 else
-  helm upgrade --install -n kube-system csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --set enableSecretRotation=true --set rotationPollInterval=60s
+  helm upgrade --install -n kube-system csi-secrets-store secrets-store-csi-driver/secrets-store-csi-driver --set enableSecretRotation=true --set rotationPollInterval=60s \
+    --set 'tokenRequests[0].audience=sts.amazonaws.com'
 fi
 
 echo "Patching default namespace"
 kubectl apply -f k8s/workspace-psa.yml
 
 echo "Install ACSP"
-kubectl apply -f https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/main/deployment/aws-provider-installer.yaml
+kubectl apply -f https://raw.githubusercontent.com/aws/secrets-store-csi-driver-provider-aws/${ACSP_VERSION:-3.1.4}/deployment/aws-provider-installer.yaml
 
 echo "preparing calico via Helm"
 helm repo add projectcalico https://docs.projectcalico.org/charts
