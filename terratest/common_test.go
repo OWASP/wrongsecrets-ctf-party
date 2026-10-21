@@ -101,11 +101,20 @@ func runDeployScript(t *testing.T, c cloud, appPassword string) {
 		"APP_PASSWORD="+appPassword,
 		"CREATE_TEAM_HMAC="+random.UniqueId()+random.UniqueId(),
 		"COOKIE_PARSER_SECRET="+random.UniqueId()+random.UniqueId(),
-		// Public charts must be pulled anonymously: stale ghcr.io logins in ~/.docker make the pull fail with 403.
-		"DOCKER_CONFIG="+t.TempDir(),
-		"HELM_REGISTRY_CONFIG="+filepath.Join(t.TempDir(), "config.json"),
+		"CTFD_CHART="+pullCTFdChart(t),
 	)
 	run(t, env, c.dir, "./"+c.deployScript)
+}
+
+// pullCTFdChart fetches the public CTFd chart anonymously. Helm sends stored ghcr.io credentials
+// from the user's home directory and a stale login makes the pull fail with a 403, hence the clean HOME.
+func pullCTFdChart(t *testing.T) string {
+	dir := t.TempDir()
+	cmd := exec.Command("helm", "pull", "oci://ghcr.io/bman46/ctfd/ctfd", "--version", "v0.9.3", "--destination", dir)
+	cmd.Env = append(os.Environ(), "HOME="+dir)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	require.NoError(t, cmd.Run(), "helm pull of the CTFd chart failed")
+	return filepath.Join(dir, "ctfd-v0.9.3.tgz")
 }
 
 func uninstallHelm(t *testing.T, env []string) {
