@@ -227,7 +227,7 @@ Run Multi User "Capture the Flags" or Security Trainings with OWASP Wrongsecrets
 | wrongsecretsCleanup.resources.limits.memory | string | `"256Mi"` |  |
 | wrongsecretsCleanup.resources.requests.memory | string | `"256Mi"` |  |
 | wrongsecretsCleanup.successfulJobsHistoryLimit | int | `1` |  |
-| wrongsecretsCleanup.tag | float | `0.5` |  |
+| wrongsecretsCleanup.tag | string | `"1.14.2"` |  |
 | wrongsecretsCleanup.tolerations | list | `[]` | Optional Configure kubernetes toleration for the wrongsecretsCleanup Job (see: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) |
 
 ----------------------------------------------

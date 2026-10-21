@@ -274,7 +274,7 @@ vaultContainer:
 # Deletes unused Wrongsecrets namespaces after a configurable period of inactivity
 wrongsecretsCleanup:
   repository: jeroenwillemsen/wrongsecrets-ctf-cleaner
-  tag: 0.5
+  tag: 1.14.2
   enabled: true
   # -- Cron in which the clean up job is run. Defaults to once in a quarter. Change this if your grace period if shorter than 15 minutes. See "https://crontab.guru/#0,15,30,45_*_*_*_*" for more details.
   cron: "0,15,30,45 * * * *"
