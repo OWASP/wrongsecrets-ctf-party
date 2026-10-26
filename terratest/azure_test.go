@@ -7,6 +7,7 @@ var azureCloud = cloud{
 	dir:          "../azure",
 	deployScript: "build-and-deploy-azure.sh",
 	expectedEnv:  "azure",
+	kubeconfig:   "~/.kube/wrongsecrets",
 	vars:         map[string]interface{}{"region": "East US"},
 	sharedVars:   map[string]interface{}{"region": "East US"},
 }

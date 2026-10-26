@@ -58,10 +58,9 @@ export AZ_VAULT_URI="$(terraform output -raw vault_uri)"
 export AZ_KEY_VAULT_TENANT_ID="$(terraform output -raw tenant_id)"
 export AZ_KEY_VAULT_NAME="$(terraform output -raw vault_name)"
 
-export AZ_STORAGE_ACCOUNT="$(terraform output -chdir=./shared-state -raw storage_account_name)"
-
 # Set the kubeconfig
-az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME
+export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/wrongsecrets}"
+az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --file "${KUBECONFIG}" --overwrite-existing
 
 # Patch the default namespace to use the secrets store CSI driver
 echo "Patching default namespace"
