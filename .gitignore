@@ -25,3 +25,7 @@ gcp/k8s/secret-volume.yml
 
 aws/k8s/ctfd-ingress.yaml
 wrongsecrets-balancer-ingress.yml
+
+# Credentials and secrets
+*password*.txt
+password.txt
