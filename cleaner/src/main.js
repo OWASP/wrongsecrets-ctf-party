@@ -56,35 +56,38 @@ async function listOldNamespaces() {
   var namespacesNames = [];
   // Get all namespaces
   const namespaces = await getNamespaces();
-  logger.info(`Found ${namespaces.body.items.length} namespaces.`);
+  const namespaceItems = namespaces?.items || namespaces?.body?.items || [];
+  logger.info(`Found ${namespaceItems.length} namespaces.`);
   // Check if there are no namespaces
-  console.log(`Found ${namespaces.body.items.length} namespaces. Checking their activity.`);
+  console.log(`Found ${namespaceItems.length} namespaces. Checking their activity.`);
   // Loop over all namespaces
-  for (const namespace of namespaces.body.items) {
+  for (const namespace of namespaceItems) {
     console.log(`Checking ${namespace.metadata.name} namespaces activity.`);
     // Get the name of the namespace
     const namespaceName = namespace.metadata.name;
     console.log('Looking for deployments in namespace ' + namespaceName);
     // Get all deployments in the namespace
     const deployments = await getTeamJuiceShopInstances(namespaceName);
+    const deploymentItems = deployments?.items || deployments?.body?.items || [];
     // Check if deployments exist, if not, skip the namespace
     // IMPORTANT: In case the namespace is completely empty, it will not be deleted as the user might want it as a playground
-    if (deployments === undefined || deployments.body.items.length === 0) {
+    if (!deployments || deploymentItems.length === 0) {
       console.log(`No wrongsecrets deployments found in namespace ${namespaceName}. Skipping...`);
       continue;
     }
     // Check if the namespace is only used by the wrongsecrets instance. If not, skip the namespace
     const AllDeployments = await getTeamInstances(namespaceName);
-    if (AllDeployments.body.items.length > deployments.body.items.length) {
+    const allDeploymentItems = AllDeployments?.items || AllDeployments?.body?.items || [];
+    if (allDeploymentItems.length > deploymentItems.length) {
       console.log(`Namespace ${namespaceName} is used by other deployments. Skipping...`);
       continue;
     }
-    console.log(`Found ${deployments.body.items.length} wrongsecrets deployments
+    console.log(`Found ${deploymentItems.length} wrongsecrets deployments
      in namespace ${namespaceName}.`);
     //Assume all deployments are active at first
-    var numberOfActiveDeployments = deployments.body.items.length;
+    var numberOfActiveDeployments = deploymentItems.length;
     // Loop over all deployments
-    for (const deployment of deployments.body.items) {
+    for (const deployment of deploymentItems) {
       // Get the name of the deployment
       const deploymentName = deployment.metadata.name;
       const lastConnectTimestamps =
