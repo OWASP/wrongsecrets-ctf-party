@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
+import { Link } from 'react-router-dom';
+import { FormattedMessage } from 'react-intl';
 
-import { BodyCard } from '../Components';
+import { BodyCard, SecondaryButton } from '../Components';
 
 const Table = styled.table`
   width: 100%;
@@ -12,21 +14,21 @@ const Table = styled.table`
 const Thead = styled.thead`
   width: 100%;
   text-align: left;
-  background-color: rgb(249, 250, 251);
+  background-color: var(--background-highlight, rgb(249, 250, 251));
   border: none;
 `;
-const Tbody = styled.thead`
+const Tbody = styled.tbody`
   width: 100%;
 
   tr {
-    border-top: 1px solid rgb(229, 231, 235);
+    border-top: 1px solid rgba(128, 128, 128, 0.2);
   }
 `;
 const Th = styled.th`
-  background-color: rgb(249, 250, 251);
+  background-color: var(--background-highlight, rgb(249, 250, 251));
   border: none;
   padding: 12px 16px;
-  color: rgb(107, 114, 128);
+  color: var(--font-color-highlight, rgb(107, 114, 128));
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
@@ -35,7 +37,23 @@ const Td = styled.td`
   padding: 8px 16px;
 `;
 const Tr = styled.tr`
-  background-color: rgb(249, 250, 251);
+  background-color: var(--background-highlight, rgb(249, 250, 251));
+`;
+
+const HeaderBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+  background-color: var(--background-highlight, rgb(249, 250, 251));
+`;
+
+const HeaderTitle = styled.h2`
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--font-color, inherit);
 `;
 
 const NoPaddingBodyCard = styled(BodyCard)`
@@ -170,7 +188,7 @@ function PlaceDisplay({ place }) {
 }
 
 const Undertitle = styled.p`
-  color: rgb(107, 114, 128);
+  color: var(--font-color-highlight, rgb(107, 114, 128));
   margin: 4px 0 0;
 `;
 
@@ -207,6 +225,26 @@ export const ScoreBoard = () => {
   return (
     <>
       <NoPaddingBodyCard>
+        <HeaderBar>
+          <HeaderTitle>
+            <FormattedMessage id="scoreboard_title" defaultMessage="Live Scoreboard" />
+          </HeaderTitle>
+          <SecondaryButton
+            as={Link}
+            to="/"
+            data-test-id="back-to-challenges-button"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '6px 12px',
+              fontSize: '13px',
+              textDecoration: 'none',
+              borderRadius: '4px',
+            }}
+          >
+            <FormattedMessage id="back_to_challenges" defaultMessage="Back to Challenges" />
+          </SecondaryButton>
+        </HeaderBar>
         <Table>
           <Thead>
             <Tr>
