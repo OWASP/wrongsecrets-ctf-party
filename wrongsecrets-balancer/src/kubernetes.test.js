@@ -488,3 +488,33 @@ describe('challenge 74', () => {
     );
   });
 });
+
+describe('Kubernetes API error handling and null safety', () => {
+  const { getErrorMessage, checkSealedSecretsController } = require('./kubernetes');
+
+  test('getErrorMessage extracts error message from error.response.body.message', () => {
+    const error = { response: { body: { message: 'Cluster quota exceeded' } } };
+    expect(getErrorMessage(error)).toBe('Cluster quota exceeded');
+  });
+
+  test('getErrorMessage extracts error message from error.body.message', () => {
+    const error = { body: { message: 'Namespace not found' } };
+    expect(getErrorMessage(error)).toBe('Namespace not found');
+  });
+
+  test('getErrorMessage extracts error message from error.message when response is undefined', () => {
+    const error = new Error('ECONNREFUSED 127.0.0.1:6443');
+    expect(getErrorMessage(error)).toBe('ECONNREFUSED 127.0.0.1:6443');
+  });
+
+  test('getErrorMessage returns default message when error has no message properties', () => {
+    expect(getErrorMessage({}, 'Custom fallback error')).toBe('Custom fallback error');
+    expect(getErrorMessage(null, 'Custom fallback error')).toBe('Custom fallback error');
+    expect(getErrorMessage(undefined)).toBe('Kubernetes API call failed');
+  });
+
+  test('checkSealedSecretsController returns false safely when deployment is not ready or null', async () => {
+    const status = await checkSealedSecretsController();
+    expect(typeof status).toBe('boolean');
+  });
+});

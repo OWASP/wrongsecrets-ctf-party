@@ -112,6 +112,9 @@ const challenge74Enabled = process.env.CHALLENGE74_ENABLED === 'true';
 
 const { get } = require('./config');
 
+const getErrorMessage = (error, defaultMessage = 'Kubernetes API call failed') =>
+  error?.response?.body?.message || error?.body?.message || error?.message || defaultMessage;
+
 // Add input validation helper function
 // Enhanced validateTeamName function with better error handling
 const validateTeamName = (team) => {
@@ -175,7 +178,7 @@ const checkSealedSecretsController = async () => {
       'Check Sealed Secrets controller'
     );
     const deployment = response;
-    const isReady = deployment.status && deployment.status.readyReplicas > 0;
+    const isReady = Boolean(deployment?.status?.readyReplicas > 0);
 
     logger.info(`Sealed Secrets controller status: ${isReady ? 'Ready' : 'Not Ready'}`);
     return isReady;
@@ -251,7 +254,7 @@ const createConfigmapForTeam = async (team) => {
   return k8sCoreApi
     .createNamespacedConfigMap({ namespace: 't-' + team, body: configmap })
     .catch((error) => {
-      throw new Error(error.response.message);
+      throw new Error(getErrorMessage(error, 'Failed to create configmap'));
     });
 };
 
@@ -271,7 +274,7 @@ const createSecretsfileForTeam = async (team) => {
   return k8sCoreApi
     .createNamespacedSecret({ namespace: 't-' + team, body: secret })
     .catch((error) => {
-      throw new Error(error.response.message);
+      throw new Error(getErrorMessage(error, 'Failed to create secret'));
     });
 };
 
@@ -295,7 +298,7 @@ const createChallenge33SecretForTeam = async (team) => {
   return k8sCoreApi
     .createNamespacedSecret({ namespace: 't-' + team, body: secret })
     .catch((error) => {
-      throw new Error(error.response.message);
+      throw new Error(getErrorMessage(error, 'Failed to create challenge33 secret'));
     });
 };
 
@@ -384,7 +387,7 @@ const createChallenge62SecretForTeam = async (team) => {
   return k8sCoreApi
     .createNamespacedSecret({ namespace: 't-' + team, body: secret })
     .catch((error) => {
-      throw new Error(error.response.message);
+      throw new Error(getErrorMessage(error, 'Failed to create challenge62 secret'));
     });
 };
 
@@ -403,7 +406,7 @@ const createChallenge62ConfigMapForTeam = async (team) => {
   return k8sCoreApi
     .createNamespacedConfigMap({ namespace: 't-' + team, body: configmap })
     .catch((error) => {
-      throw new Error(error.response.message);
+      throw new Error(getErrorMessage(error, 'Failed to create challenge62 configmap'));
     });
 };
 
@@ -441,7 +444,7 @@ const createNameSpaceForTeam = async (team) => {
   };
 
   await k8sCoreApi.createNamespace({ name: 't-' + team, body: namedNameSpace }).catch((error) => {
-    throw new Error(JSON.stringify(error));
+    throw new Error(getErrorMessage(error, 'Failed to create namespace'));
   });
 
   // Check if Sealed Secrets controller is available
@@ -1064,7 +1067,7 @@ const createAWSSecretsProviderForTeam = async (team) => {
       body: secretProviderClass,
     })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create AWS secret provider class'));
     });
 };
 
@@ -1082,7 +1085,7 @@ const patchServiceAccountForTeamForAWS = async (team) => {
       jsonMergePatchOptions
     )
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to patch AWS service account'));
     });
 };
 
@@ -1347,7 +1350,7 @@ const createAWSDeploymentForTeam = async ({ team, passcodeHash }) => {
   return k8sAppsApi
     .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
-      throw new Error(error.response.body.message);
+      throw new Error(getErrorMessage(error, 'Failed to create Azure deployment'));
     });
 };
 
@@ -1393,7 +1396,7 @@ const createAzureSecretsProviderForTeam = async (team) => {
       body: secretProviderClass,
     })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create Azure secret provider class'));
     });
 };
 
@@ -1687,7 +1690,7 @@ const createAzureDeploymentForTeam = async ({ team, passcodeHash }) => {
   return k8sAppsApi
     .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
-      throw new Error(error.response.body.message);
+      throw new Error(getErrorMessage(error, 'Failed to create deployment'));
     });
 };
 
@@ -2131,31 +2134,31 @@ const createNSPsforTeam = async (team) => {
   await k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nspAllowkubectl })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create nspAllowkubectl'));
     });
   logger.info(`applying nspDefaultDeny for ${team}`);
   await k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nspDefaultDeny })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create nspDefaultDeny'));
     });
   logger.info(`applying nsAllowOnlyDNS for ${team}`);
   await k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowOnlyDNS })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create nsAllowOnlyDNS'));
     });
   logger.info(`applying nsAllowIntraNamespace for ${team}`);
   await k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowIntraNamespace })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create nsAllowIntraNamespace'));
     });
   logger.info(`applying nsAllowBalancer for ${team}`);
   await k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowBalancer })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create nsAllowBalancer'));
     });
   logger.info(`applying nsAllowWrongSecretstoVirtualDesktop for ${team}`);
   await k8sNetworkingApi
@@ -2164,7 +2167,9 @@ const createNSPsforTeam = async (team) => {
       body: nsAllowWrongSecretstoVirtualDesktop,
     })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(
+        getErrorMessage(error, 'Failed to create nsAllowWrongSecretstoVirtualDesktop')
+      );
     });
   logger.info(`applying nsAllowVirtualDesktoptoWrongSecrets for ${team}`);
   await k8sNetworkingApi
@@ -2173,19 +2178,21 @@ const createNSPsforTeam = async (team) => {
       body: nsAllowVirtualDesktoptoWrongSecrets,
     })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(
+        getErrorMessage(error, 'Failed to create nsAllowVirtualDesktoptoWrongSecrets')
+      );
     });
   logger.info(`applying broaderallow for ${team}`);
   await k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: broaderallow })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create broaderallow'));
     });
   logger.info(`applying nsAllowToDoKubeCTLFromWebTop for ${team}`);
   return k8sNetworkingApi
     .createNamespacedNetworkPolicy({ namespace: `t-${team}`, body: nsAllowToDoKubeCTLFromWebTop })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create nsAllowToDoKubeCTLFromWebTop'));
     });
 };
 
@@ -2204,7 +2211,7 @@ const createServiceAccountForWebTop = async (team) => {
   return k8sCoreApi
     .createNamespacedServiceAccount({ namespace: `t-${team}`, body: webtopSA })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create webtop service account'));
     });
 };
 
@@ -2268,7 +2275,7 @@ const createRoleForWebTop = async (team) => {
   return k8sRBACAPI
     .createNamespacedRole({ namespace: `t-${team}`, body: roleDefinitionForWebtop })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create webtop role'));
     });
 };
 
@@ -2289,7 +2296,7 @@ const createRoleBindingForWebtop = async (team) => {
   return k8sRBACAPI
     .createNamespacedRoleBinding({ namespace: `t-${team}`, body: roleBindingforWebtop })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create webtop role binding'));
     });
 };
 
@@ -2420,7 +2427,7 @@ const createDesktopDeploymentForTeam = async ({ team, passcodeHash }) => {
       body: deploymentWrongSecretsDesktopConfig,
     })
     .catch((error) => {
-      throw new Error(error.response.body.message);
+      throw new Error(getErrorMessage(error, 'Failed to create desktop deployment'));
     });
 };
 
@@ -2460,7 +2467,7 @@ const createServiceForTeam = async (teamname) => {
       },
     })
     .catch((error) => {
-      throw new Error(error.response.body.message);
+      throw new Error(getErrorMessage(error, 'Failed to create service'));
     });
 };
 
@@ -2494,7 +2501,7 @@ const createDesktopServiceForTeam = async (teamname) => {
       },
     })
     .catch((error) => {
-      throw new Error(error.response.body.message);
+      throw new Error(getErrorMessage(error, 'Failed to create desktop service'));
     });
 };
 //END DESKTOP AND SERVICES
@@ -2514,7 +2521,7 @@ const getJuiceShopInstances = () => {
     })
     .catch((error) => {
       logger.info('error for getJuiceShopInstances: {}', error);
-      throw new Error(error.response.body.message);
+      throw new Error(getErrorMessage(error, 'Failed to list deployments'));
     });
 };
 
@@ -2705,7 +2712,7 @@ const changePasscodeHashForTeam = async (teamname, passcodeHash) => {
 
 const deleteNamespaceForTeam = async (team) => {
   await k8sCoreApi.deleteNamespace({ name: `t-${team}` }).catch((error) => {
-    throw new Error(error.response.body.message);
+    throw new Error(getErrorMessage(error, 'Failed to delete namespace'));
   });
 };
 
@@ -2782,7 +2789,7 @@ const createGCPSecretsProviderForTeam = async (team) => {
       body: secretProviderClass,
     })
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to create GCP secret provider class'));
     });
 };
 
@@ -2856,7 +2863,7 @@ const patchServiceAccountForTeamForGCP = async (team) => {
       jsonMergePatchOptions
     )
     .catch((error) => {
-      throw new Error(JSON.stringify(error));
+      throw new Error(getErrorMessage(error, 'Failed to patch GCP service account'));
     });
 };
 
@@ -3122,13 +3129,14 @@ const createGCPDeploymentForTeam = async ({ team, passcodeHash }) => {
   return k8sAppsApi
     .createNamespacedDeployment({ namespace: 't-' + team, body: deploymentWrongSecretsConfig })
     .catch((error) => {
-      throw new Error(error.response.body.message);
+      throw new Error(getErrorMessage(error, 'Failed to create deployment'));
     });
 };
 
 // FIXED EXPORT PATTERN - ALL FUNCTIONS WITH CONSISTENT REFERENCES
 module.exports = {
   // Helper functions
+  getErrorMessage,
   safeApiCall,
   validateTeamName,
   checkSealedSecretsController,
