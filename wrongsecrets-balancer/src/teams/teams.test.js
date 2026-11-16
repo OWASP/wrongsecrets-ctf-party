@@ -863,4 +863,59 @@ describe('Cloud team provisioning (AWS, Azure, GCP)', () => {
     );
     expect(createRoleBindingForWebtop).toHaveBeenCalledWith('team42');
   });
+
+  describe('admin login and team existence handling', () => {
+    test('allows admin login when passcode matches in constant time', async () => {
+      const adminUser = get('admin.username');
+      const adminPass = 'ADMIN123';
+      get.cache.clear();
+      process.env.ADMIN_PASSWORD = adminPass;
+
+      try {
+        const res = await request(app)
+          .post(`/balancer/teams/${adminUser}/join`)
+          .send({ passcode: adminPass })
+          .expect(200);
+
+        expect(res.body.message).toBe('Signed in as admin');
+        expect(res.headers['set-cookie'][0]).toContain(`t-${adminUser}`);
+      } finally {
+        delete process.env.ADMIN_PASSWORD;
+        get.cache.clear();
+      }
+    });
+
+    test('rejects admin login with 401 when passcode is incorrect or invalid type', async () => {
+      const adminUser = get('admin.username');
+      const adminPass = 'ADMIN123';
+      get.cache.clear();
+      process.env.ADMIN_PASSWORD = adminPass;
+
+      try {
+        await request(app)
+          .post(`/balancer/teams/${adminUser}/join`)
+          .send({ passcode: 'WRONG123' })
+          .expect(401);
+
+        await request(app).post(`/balancer/teams/${adminUser}/join`).send({}).expect(401);
+      } finally {
+        delete process.env.ADMIN_PASSWORD;
+        get.cache.clear();
+      }
+    });
+
+    test('proceeds to team creation when getJuiceShopInstanceForTeamname returns undefined without throwing', async () => {
+      getJuiceShopInstanceForTeamname.mockResolvedValueOnce(undefined);
+      createNameSpaceForTeam.mockResolvedValueOnce({});
+      createK8sDeploymentForTeam.mockResolvedValueOnce({});
+
+      const res = await request(app)
+        .post('/balancer/teams/newteam/join')
+        .send({ hmacvalue: validHmacFor('newteam') })
+        .expect(200);
+
+      expect(res.body.message).toBe('Created Instance');
+      expect(getJuiceShopInstanceForTeamname).toHaveBeenCalledWith('newteam');
+    });
+  });
 });

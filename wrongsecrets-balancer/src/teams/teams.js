@@ -97,7 +97,7 @@ async function interceptAdminLogin(req, res, next) {
   const { team } = req.params;
   const passcode = req.body && req.body.passcode;
 
-  if (team === get('admin.username') && passcode === get('admin.password')) {
+  if (team === get('admin.username') && timingSafeEqualStrings(passcode, get('admin.password'))) {
     loginCounter.inc({ type: 'login', userType: 'admin' }, 1);
     return res
       .cookie(get('cookieParser.cookieName'), `t-${team}`, {
@@ -193,7 +193,14 @@ async function joinIfTeamAlreadyExists(req, res, next) {
   }
 
   try {
-    const { passcodeHash } = await getJuiceShopInstanceForTeamname(team);
+    const instance = await getJuiceShopInstanceForTeamname(team);
+
+    if (!instance) {
+      logger.info(`Team ${team} doesn't have a WrongSecrets deployment yet`);
+      return next();
+    }
+
+    const { passcodeHash } = instance;
 
     logger.info(`Team ${team} already has a WrongSecrets deployment`);
 
@@ -217,9 +224,9 @@ async function joinIfTeamAlreadyExists(req, res, next) {
     });
   } catch (error) {
     if (
-      error.message.includes(`deployments.apps "t-${team}-wrongsecrets" not found`) ||
-      error.message ===
-        "Cannot destructure property 'passcodeHash' of '(intermediate value)' as it is undefined."
+      error.message?.includes(`deployments.apps "t-${team}-wrongsecrets" not found`) ||
+      error.message?.includes('not found') ||
+      error.message?.includes('Cannot destructure property')
     ) {
       logger.info(`Team ${team} doesn't have a WrongSecrets deployment yet`);
       return next();
