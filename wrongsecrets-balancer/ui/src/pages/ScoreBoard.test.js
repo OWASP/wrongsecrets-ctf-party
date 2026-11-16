@@ -3,6 +3,22 @@ import { createRoot } from 'react-dom/client';
 
 import { ScoreBoard } from './ScoreBoard';
 
+jest.mock(
+  'react-router-dom',
+  () => ({
+    Link: ({ to, children, ...props }) => (
+      <a href={to} {...props}>
+        {children}
+      </a>
+    ),
+  }),
+  { virtual: true }
+);
+
+jest.mock('react-intl', () => ({
+  FormattedMessage: ({ defaultMessage }) => defaultMessage || null,
+}));
+
 describe('ScoreBoard', () => {
   let container;
   let root;
@@ -47,5 +63,35 @@ describe('ScoreBoard', () => {
     expect(container.textContent).toContain('team-alpha');
     expect(container.textContent).toContain('42 points');
     expect(container.textContent).toContain('2 solved challenges');
+  });
+
+  test('renders correct table semantics with thead and tbody elements', async () => {
+    await act(async () => {
+      root.render(<ScoreBoard />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const theadElements = container.querySelectorAll('thead');
+    const tbodyElements = container.querySelectorAll('tbody');
+
+    expect(theadElements.length).toBe(1);
+    expect(tbodyElements.length).toBe(1);
+  });
+
+  test('renders navigation link back to challenges', async () => {
+    await act(async () => {
+      root.render(<ScoreBoard />);
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const backButton = container.querySelector('[data-test-id="back-to-challenges-button"]');
+    expect(backButton).not.toBeNull();
+    expect(backButton.getAttribute('href')).toBe('/');
   });
 });
